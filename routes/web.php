@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LetterGameController;
 use App\Http\Controllers\NumberGameController;
 use App\Http\Controllers\PlayController;
@@ -10,9 +11,9 @@ Route::view('/', 'welcome')->name('home');
 Route::get('/play', [PlayController::class, 'index'])->name('play');
 Route::view('/leaderboards', 'leaderboards')->name('leaderboards');
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', DashboardController::class)
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/play/letters/{ageGroup}', [LetterGameController::class, 'show'])->name('play.letters.show');

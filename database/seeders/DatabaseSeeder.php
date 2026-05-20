@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             AgeGroupSeeder::class,
+            WordSeeder::class,
         ]);
 
         // User::factory(10)->create();

@@ -51,9 +51,9 @@
             <section class="grid gap-6 xl:grid-cols-3">
                 @php
                     $cardThemes = [
-                        ['accent' => 'from-cyan-100 via-white to-sky-50', 'text' => 'text-cyan-700', 'badge' => 'Découverte'],
-                        ['accent' => 'from-emerald-100 via-white to-lime-50', 'text' => 'text-emerald-700', 'badge' => 'Entraînement'],
-                        ['accent' => 'from-orange-100 via-white to-amber-50', 'text' => 'text-orange-700', 'badge' => 'Expert'],
+                        ['accent' => 'from-cyan-100 via-white to-sky-50', 'text' => 'text-cyan-700', 'badge' => 'Découverte', 'badgeClass' => 'chronomots-badge--info', 'difficulty' => 'Progressif', 'pace' => 'Calme et guidé'],
+                        ['accent' => 'from-emerald-100 via-white to-lime-50', 'text' => 'text-emerald-700', 'badge' => 'Entraînement', 'badgeClass' => 'chronomots-badge--success', 'difficulty' => 'Équilibré', 'pace' => 'Rythme actif'],
+                        ['accent' => 'from-orange-100 via-white to-amber-50', 'text' => 'text-orange-700', 'badge' => 'Expert', 'badgeClass' => 'chronomots-badge--warning', 'difficulty' => 'Exigeant', 'pace' => 'Rapide et tactique'],
                     ];
                 @endphp
 
@@ -65,19 +65,22 @@
                             : $ageGroup->min_age.'+';
                     @endphp
 
-                    <article class="chronomots-panel chronomots-interactive flex h-full flex-col rounded-[2rem] p-6 sm:p-8">
-                        <div class="rounded-[1.5rem] bg-gradient-to-br {{ $theme['accent'] }} p-5 shadow-sm">
-                            <div class="flex items-start justify-between gap-3">
+                    <article class="chronomots-panel chronomots-interactive chronomots-mode-card flex h-full flex-col rounded-[2rem] p-6 sm:p-8">
+                        <div class="chronomots-mode-hero rounded-[1.5rem] bg-gradient-to-br {{ $theme['accent'] }} p-5 shadow-sm">
+                            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                 <div>
-                                    <p class="text-xs font-semibold uppercase tracking-[0.22em] {{ $theme['text'] }}">
+                                    <span class="chronomots-badge {{ $theme['badgeClass'] }}">
                                         {{ $theme['badge'] }}
-                                    </p>
+                                    </span>
                                     <h3 class="mt-3 text-3xl font-black tracking-[-0.04em] text-slate-950">
                                         {{ $ageGroup->name }}
                                     </h3>
+                                    <p class="mt-3 text-sm font-semibold uppercase tracking-[0.18em] {{ $theme['text'] }}">
+                                        {{ $theme['difficulty'] }} • {{ $theme['pace'] }}
+                                    </p>
                                 </div>
 
-                                <span class="rounded-full border border-white/80 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+                                <span class="chronomots-pill self-start">
                                     {{ $ageLabel }}
                                 </span>
                             </div>
@@ -87,22 +90,41 @@
                             {{ $ageGroup->description }}
                         </p>
 
-                        <div class="mt-6 grid gap-3 sm:grid-cols-2">
-                            <div class="chronomots-soft-card rounded-[1.4rem] p-4">
+                        <div class="mt-6 flex flex-wrap gap-2">
+                            <span class="chronomots-pill">Lettres</span>
+                            <span class="chronomots-pill">Chiffres</span>
+                            <span class="chronomots-pill">Adapté à l’âge</span>
+                        </div>
+
+                        <div class="chronomots-mode-meta mt-6">
+                            <div class="chronomots-soft-card chronomots-mode-stat rounded-[1.4rem] p-4">
                                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Temps lettres</p>
                                 <p class="mt-2 text-lg font-bold text-slate-950">{{ $ageGroup->letters_timer_seconds }} s</p>
+                                <p class="mt-1 text-sm text-slate-500">Recherche de mot sous pression douce.</p>
                             </div>
-                            <div class="chronomots-soft-card rounded-[1.4rem] p-4">
+                            <div class="chronomots-soft-card chronomots-mode-stat rounded-[1.4rem] p-4">
                                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Temps chiffres</p>
                                 <p class="mt-2 text-lg font-bold text-slate-950">{{ $ageGroup->numbers_timer_seconds }} s</p>
+                                <p class="mt-1 text-sm text-slate-500">Calcul mental et logique progressive.</p>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 chronomots-mini-grid">
+                            <div class="chronomots-soft-card rounded-[1.4rem] p-4">
+                                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Ambiance</p>
+                                <p class="mt-2 text-lg font-bold text-slate-950">{{ $theme['pace'] }}</p>
+                            </div>
+                            <div class="chronomots-soft-card rounded-[1.4rem] p-4">
+                                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Niveau</p>
+                                <p class="mt-2 text-lg font-bold text-slate-950">{{ $theme['difficulty'] }}</p>
                             </div>
                         </div>
 
                         <div class="mt-6 grid gap-3 sm:grid-cols-2">
-                            <a href="{{ route('play.letters.show', $ageGroup) }}" class="chronomots-button-primary inline-flex items-center justify-center rounded-full px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]">
+                            <a href="{{ route('play.letters.show', $ageGroup) }}" class="chronomots-button-primary inline-flex items-center justify-center rounded-full px-5 py-3.5 text-center text-sm font-semibold uppercase tracking-[0.18em]">
                                 Jouer aux lettres
                             </a>
-                            <a href="{{ route('play.numbers.show', $ageGroup) }}" class="chronomots-button-secondary inline-flex items-center justify-center rounded-full px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]">
+                            <a href="{{ route('play.numbers.show', $ageGroup) }}" class="chronomots-button-secondary inline-flex items-center justify-center rounded-full px-5 py-3.5 text-center text-sm font-semibold uppercase tracking-[0.18em]">
                                 Jouer aux chiffres
                             </a>
                         </div>

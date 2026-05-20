@@ -16,47 +16,50 @@
 
     <div class="px-4 py-8 sm:px-6 lg:px-8">
         <div class="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-            <section class="chronomots-panel rounded-[2rem] p-6 sm:p-8">
+            <section x-data="chronomotsTimer({{ $timerSeconds }})" class="chronomots-panel rounded-[2rem] p-6 sm:p-8">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <span class="chronomots-badge">Tirage en cours</span>
+                        <div class="flex flex-wrap gap-2">
+                            <span class="chronomots-badge chronomots-badge--plum">Tirage en cours</span>
+                            <span class="chronomots-live-pill">Mode chiffres</span>
+                        </div>
                         <h2 class="mt-5 text-3xl font-black tracking-[-0.04em] text-slate-950">
                             Atteins la cible {{ $targetNumber }}
                         </h2>
                         <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
                             {{ $ageGroup->description }}
                         </p>
+                        <div class="mt-4 flex flex-wrap gap-2">
+                            <span class="chronomots-pill">{{ $ageGroup->name }}</span>
+                            <span class="chronomots-pill">{{ $timerSeconds }} secondes</span>
+                            <span class="chronomots-pill">Objectif : viser juste</span>
+                        </div>
                     </div>
 
                     <div
-                        x-data="{
-                            remaining: {{ $timerSeconds }},
-                            minutes() { return String(Math.floor(this.remaining / 60)).padStart(2, '0') },
-                            seconds() { return String(this.remaining % 60).padStart(2, '0') },
-                            init() {
-                                setInterval(() => {
-                                    if (this.remaining > 0) {
-                                        this.remaining--;
-                                    }
-                                }, 1000);
-                            }
+                        :class="{
+                            'chronomots-timer--urgent': isUrgent,
+                            'chronomots-timer--expired': expired
                         }"
-                        class="chronomots-soft-card rounded-[1.5rem] p-5 sm:w-48"
+                        class="chronomots-soft-card chronomots-timer rounded-[1.5rem] p-5 sm:w-48"
                     >
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Chrono chiffres</p>
                         <p class="mt-3 text-4xl font-black tracking-[-0.05em] text-slate-950">
-                            <span x-text="minutes()"></span>:<span x-text="seconds()"></span>
+                            <span x-text="minutes"></span>:<span x-text="seconds"></span>
                         </p>
-                        <p class="mt-2 text-sm leading-6 text-slate-600">
+                        <p x-show="!expired" class="mt-2 text-sm leading-6 text-slate-600">
                             Temps prévu pour {{ $ageGroup->name }}.
+                        </p>
+                        <p x-show="expired" class="mt-2 text-sm font-semibold leading-6 text-rose-600">
+                            Temps écoulé
                         </p>
                     </div>
                 </div>
 
                 <div class="mt-8 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-                    <div class="grid gap-3 {{ count($numbers) >= 6 ? 'sm:grid-cols-3' : 'sm:grid-cols-2' }}">
+                    <div class="grid gap-3 grid-cols-2 {{ count($numbers) >= 6 ? 'sm:grid-cols-3' : 'sm:grid-cols-2' }}">
                         @foreach ($numbers as $number)
-                            <div class="chronomots-soft-card flex min-h-20 items-center justify-center rounded-[1.6rem] bg-white/90 px-4 py-5 text-center shadow-sm">
+                            <div class="chronomots-soft-card chronomots-token chronomots-token--numbers flex min-h-20 items-center justify-center rounded-[1.6rem] px-4 py-5 text-center shadow-sm">
                                 <span class="text-3xl font-black tracking-[-0.05em] text-slate-950 sm:text-4xl">{{ $number }}</span>
                             </div>
                         @endforeach
@@ -68,7 +71,12 @@
                     </div>
                 </div>
 
-                <form method="POST" action="{{ route('play.numbers.submit', $ageGroup) }}" class="mt-8 space-y-4">
+                <form
+                    method="POST"
+                    action="{{ route('play.numbers.submit', $ageGroup) }}"
+                    :class="{ 'chronomots-form-disabled': expired }"
+                    class="chronomots-form-shell mt-8 space-y-4 rounded-[1.75rem] p-5 sm:p-6"
+                >
                     @csrf
                     <input type="hidden" name="draw_id" value="{{ $drawId }}">
 
@@ -82,7 +90,8 @@
                             type="text"
                             maxlength="255"
                             value="{{ old('submitted_solution', $submittedSolution) }}"
-                            class="mt-3 block w-full rounded-[1.4rem] border border-slate-200 bg-white/90 px-5 py-4 text-lg font-semibold tracking-[0.02em] text-slate-950 shadow-sm outline-none"
+                            :disabled="expired"
+                            class="chronomots-input mt-3 block w-full rounded-[1.4rem] px-5 py-4 text-lg font-semibold tracking-[0.02em] text-slate-950 shadow-sm outline-none"
                             placeholder="Exemple : (25 + 10) * 4"
                             autocomplete="off"
                         >
@@ -92,8 +101,17 @@
                         @endif
                     </div>
 
+                    <p x-show="expired" class="text-sm font-semibold text-rose-600">
+                        Temps écoulé. Le formulaire est maintenant désactivé.
+                    </p>
+
                     <div class="flex flex-col gap-3 sm:flex-row">
-                        <button type="submit" class="chronomots-button-primary inline-flex items-center justify-center rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]">
+                        <button
+                            type="submit"
+                            :disabled="expired"
+                            :class="{ 'cursor-not-allowed opacity-60 hover:translate-y-0': expired }"
+                            class="chronomots-button-primary inline-flex items-center justify-center rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]"
+                        >
                             Valider mon calcul
                         </button>
                         <a href="{{ route('play.numbers.show', $ageGroup) }}" class="chronomots-button-secondary inline-flex items-center justify-center rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]">
@@ -104,20 +122,32 @@
             </section>
 
             <aside class="chronomots-panel rounded-[2rem] p-6 sm:p-8">
-                <p class="text-sm font-semibold uppercase tracking-[0.22em] text-slate-500">Barème V1</p>
+                <p class="chronomots-kicker">Barème V1</p>
                 <h3 class="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950">Simple et lisible</h3>
+                <p class="mt-3 text-sm leading-7 text-slate-600">
+                    Le scoring récompense la précision, tout en gardant une lecture immédiate pour chaque âge.
+                </p>
 
                 <div class="mt-6 space-y-3">
                     <div class="chronomots-soft-card rounded-[1.5rem] p-4">
-                        <p class="font-semibold text-slate-950">Exact</p>
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="font-semibold text-slate-950">Exact</p>
+                            <span class="chronomots-badge chronomots-badge--success">100 pts</span>
+                        </div>
                         <p class="mt-1 text-sm leading-6 text-slate-600">Si ton résultat atteint exactement la cible : 100 points.</p>
                     </div>
                     <div class="chronomots-soft-card rounded-[1.5rem] p-4">
-                        <p class="font-semibold text-slate-950">Très proche</p>
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="font-semibold text-slate-950">Très proche</p>
+                            <span class="chronomots-badge chronomots-badge--info">50 pts</span>
+                        </div>
                         <p class="mt-1 text-sm leading-6 text-slate-600">Si l’écart est inférieur ou égal à 5 : 50 points.</p>
                     </div>
                     <div class="chronomots-soft-card rounded-[1.5rem] p-4">
-                        <p class="font-semibold text-slate-950">Proche</p>
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="font-semibold text-slate-950">Proche</p>
+                            <span class="chronomots-badge chronomots-badge--warning">25 pts</span>
+                        </div>
                         <p class="mt-1 text-sm leading-6 text-slate-600">Si l’écart est inférieur ou égal à 10 : 25 points, sinon 0.</p>
                     </div>
                 </div>

@@ -15,53 +15,84 @@
     </x-slot>
 
     <div class="px-4 py-8 sm:px-6 lg:px-8">
+        @php
+            $performanceLabel = $difference === 0 ? 'Cible atteinte' : ($difference <= 5 ? 'Très proche' : ($difference <= 10 ? 'Bonne approche' : 'À retenter'));
+            $performanceBadge = $difference === 0 ? 'chronomots-badge--success' : ($difference <= 5 ? 'chronomots-badge--info' : ($difference <= 10 ? 'chronomots-badge--plum' : 'chronomots-badge--warning'));
+        @endphp
+
         <div class="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-            <section class="chronomots-panel rounded-[2rem] p-6 sm:p-8">
-                <span class="chronomots-badge">Résultat obtenu</span>
+            <section class="chronomots-panel chronomots-result-shell rounded-[2rem] p-6 sm:p-8">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <span class="chronomots-badge {{ $performanceBadge }}">{{ $performanceLabel }}</span>
+                    <span class="chronomots-live-pill">Résultat enregistré</span>
+                </div>
+
                 <div class="mt-6 grid gap-4 sm:grid-cols-3">
-                    <div class="rounded-[1.75rem] bg-gradient-to-br from-emerald-100 via-white to-lime-50 p-5 shadow-sm">
+                    <div class="chronomots-score-burst rounded-[1.75rem] bg-gradient-to-br from-emerald-100 via-white to-lime-50 p-5 shadow-sm">
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Cible</p>
                         <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $targetNumber }}</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-600">Objectif à atteindre avec les nombres tirés.</p>
                     </div>
-                    <div class="rounded-[1.75rem] bg-gradient-to-br from-cyan-100 via-white to-sky-50 p-5 shadow-sm">
+                    <div class="chronomots-score-burst rounded-[1.75rem] bg-gradient-to-br from-cyan-100 via-white to-sky-50 p-5 shadow-sm">
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">Résultat</p>
                         <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $resultValue }}</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-600">Valeur produite par ton calcul.</p>
                     </div>
-                    <div class="rounded-[1.75rem] bg-gradient-to-br from-orange-100 via-white to-amber-50 p-5 shadow-sm">
+                    <div class="chronomots-score-burst rounded-[1.75rem] bg-gradient-to-br from-orange-100 via-white to-amber-50 p-5 shadow-sm">
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-orange-700">Score</p>
                         <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $score }} pts</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-600">Calcul du score selon la proximité avec la cible.</p>
                     </div>
                 </div>
 
                 <div class="mt-8 space-y-4">
-                    <div class="chronomots-soft-card rounded-[1.5rem] p-5">
+                    <div class="chronomots-form-shell rounded-[1.5rem] p-5">
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Calcul soumis</p>
                         <p class="mt-3 text-lg font-bold text-slate-950">{{ $submittedSolution }}</p>
                     </div>
 
-                    <div class="chronomots-soft-card rounded-[1.5rem] p-5">
+                    <div class="chronomots-form-shell rounded-[1.5rem] p-5">
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Écart avec la cible</p>
-                        <p class="mt-3 text-lg font-bold text-slate-950">{{ $difference }}</p>
+                        <div class="mt-3 flex items-center justify-between gap-3">
+                            <p class="text-lg font-bold text-slate-950">{{ $difference }}</p>
+                            <span class="chronomots-pill">{{ $performanceLabel }}</span>
+                        </div>
                     </div>
 
-                    <div class="grid gap-3 {{ count($numbers) >= 6 ? 'sm:grid-cols-3' : 'sm:grid-cols-2' }}">
+                    <div class="rounded-[1.75rem] border border-white/70 bg-white/55 p-5">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <p class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Nombres utilisés</p>
+                                <h3 class="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950">Ton tirage chiffres</h3>
+                            </div>
+                            <span class="chronomots-pill">{{ count($numbers) }} nombres</span>
+                        </div>
+
+                        <div class="mt-5 grid gap-3 grid-cols-2 {{ count($numbers) >= 6 ? 'sm:grid-cols-3' : 'sm:grid-cols-2' }}">
                         @foreach ($numbers as $number)
-                            <div class="chronomots-soft-card flex min-h-18 items-center justify-center rounded-[1.4rem] bg-white/90 px-3 py-4">
+                            <div class="chronomots-soft-card chronomots-token chronomots-token--numbers flex min-h-18 items-center justify-center rounded-[1.4rem] px-3 py-4">
                                 <span class="text-2xl font-black tracking-[-0.05em] text-slate-950">{{ $number }}</span>
                             </div>
                         @endforeach
+                        </div>
                     </div>
                 </div>
             </section>
 
             <aside class="chronomots-panel rounded-[2rem] p-6 sm:p-8">
-                <p class="text-sm font-semibold uppercase tracking-[0.22em] text-slate-500">Résumé de session</p>
+                <p class="chronomots-kicker">Résumé de session</p>
                 <h3 class="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950">Partie enregistrée</h3>
+                <p class="mt-3 text-sm leading-7 text-slate-600">
+                    Cette manche vient enrichir ton historique personnel et tes meilleurs scores.
+                </p>
 
                 <div class="mt-6 space-y-3">
                     <div class="chronomots-soft-card rounded-[1.5rem] p-4">
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Type</p>
-                        <p class="mt-2 text-lg font-bold text-slate-950">Chiffres</p>
+                        <div class="mt-2 flex items-center justify-between gap-3">
+                            <p class="text-lg font-bold text-slate-950">Chiffres</p>
+                            <span class="chronomots-badge chronomots-badge--plum">Solo</span>
+                        </div>
                     </div>
                     <div class="chronomots-soft-card rounded-[1.5rem] p-4">
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Statut</p>
@@ -70,6 +101,17 @@
                     <div class="chronomots-soft-card rounded-[1.5rem] p-4">
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Calcul enregistré</p>
                         <p class="mt-2 text-lg font-bold text-slate-950">{{ $numberRound->submitted_solution }}</p>
+                    </div>
+                </div>
+
+                <div class="mt-6 chronomots-mini-grid">
+                    <div class="chronomots-soft-card rounded-[1.5rem] p-4">
+                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Catégorie</p>
+                        <p class="mt-2 text-lg font-bold text-slate-950">{{ $ageGroup->name }}</p>
+                    </div>
+                    <div class="chronomots-soft-card rounded-[1.5rem] p-4">
+                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Performance</p>
+                        <p class="mt-2 text-lg font-bold text-slate-950">{{ $performanceLabel }}</p>
                     </div>
                 </div>
 

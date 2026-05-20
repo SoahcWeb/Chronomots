@@ -6,6 +6,7 @@ use App\Models\AgeGroup;
 use App\Models\GameSession;
 use App\Models\LetterRound;
 use App\Models\User;
+use App\Models\Word;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -51,6 +52,13 @@ class LetterGameTest extends TestCase
             'letters_timer_seconds' => 60,
             'numbers_timer_seconds' => 90,
         ]);
+        Word::query()->create([
+            'word' => 'mots',
+            'normalized_word' => 'MOTS',
+            'length' => 4,
+            'frequency' => 95,
+            'age_level' => '7-9',
+        ]);
 
         $this->actingAs($user)->get(route('play.letters.show', $ageGroup));
 
@@ -93,6 +101,97 @@ class LetterGameTest extends TestCase
             'submitted_word' => 'MOTS',
             'score' => 40,
         ]);
+    }
+
+    public function test_letters_game_rejects_words_not_present_in_dictionary(): void
+    {
+        $user = User::factory()->create();
+        $ageGroup = AgeGroup::query()->create([
+            'name' => '10-13 ans',
+            'min_age' => 10,
+            'max_age' => 13,
+            'description' => 'Mode entraînement',
+            'letters_timer_seconds' => 60,
+            'numbers_timer_seconds' => 90,
+        ]);
+
+        $drawId = 'draw-test-dictionary';
+
+        $response = $this
+            ->withSession([
+                'chronomots' => [
+                    'letters' => [
+                        'draws' => [
+                            $drawId => [
+                                'draw_id' => $drawId,
+                                'letters' => ['M', 'A', 'R', 'O', 'T', 'E', 'S', 'L'],
+                                'started_at' => now()->toDateTimeString(),
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->actingAs($user)
+            ->post(route('play.letters.submit', $ageGroup), [
+                'draw_id' => $drawId,
+                'submitted_word' => 'motels',
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertSee('Le mot proposé n’existe pas encore dans le dictionnaire de Chronomots.');
+
+        $this->assertDatabaseCount('game_sessions', 0);
+        $this->assertDatabaseCount('letter_rounds', 0);
+    }
+
+    public function test_letters_game_rejects_words_not_allowed_for_the_age_group(): void
+    {
+        $user = User::factory()->create();
+        $ageGroup = AgeGroup::query()->create([
+            'name' => '7-9 ans',
+            'min_age' => 7,
+            'max_age' => 9,
+            'description' => 'Mode découverte',
+            'letters_timer_seconds' => 90,
+            'numbers_timer_seconds' => 120,
+        ]);
+        Word::query()->create([
+            'word' => 'réflexion',
+            'normalized_word' => 'REFLEXION',
+            'length' => 9,
+            'frequency' => 42,
+            'age_level' => '14+',
+        ]);
+
+        $drawId = 'draw-test-age-level';
+
+        $response = $this
+            ->withSession([
+                'chronomots' => [
+                    'letters' => [
+                        'draws' => [
+                            $drawId => [
+                                'draw_id' => $drawId,
+                                'letters' => ['R', 'E', 'F', 'L', 'E', 'X', 'I', 'O', 'N', 'S'],
+                                'started_at' => now()->toDateTimeString(),
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->actingAs($user)
+            ->post(route('play.letters.submit', $ageGroup), [
+                'draw_id' => $drawId,
+                'submitted_word' => 'réflexion',
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertSee('Ce mot n’est pas encore autorisé pour cette catégorie d’âge.');
+
+        $this->assertDatabaseCount('game_sessions', 0);
+        $this->assertDatabaseCount('letter_rounds', 0);
     }
 
     public function test_letters_game_rejects_words_using_unavailable_letters(): void

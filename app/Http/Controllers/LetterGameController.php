@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AgeGroup;
 use App\Models\GameSession;
+use App\Services\WordValidationService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,11 @@ use Illuminate\Support\Str;
 class LetterGameController extends Controller
 {
     private const SESSION_KEY = 'chronomots.letters.draws';
+
+    public function __construct(
+        private readonly WordValidationService $wordValidationService,
+    ) {
+    }
 
     /**
      * Display a new letters game for the selected age group.
@@ -36,10 +42,10 @@ class LetterGameController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'draw_id' => ['required', 'string'],
-            'submitted_word' => ['required', 'string', 'alpha:ascii', 'max:32'],
+            'submitted_word' => ['required', 'string', 'regex:/^[\pL\'-]+$/u', 'max:32'],
         ], [
             'submitted_word.required' => 'Propose un mot avant de valider.',
-            'submitted_word.alpha' => 'Le mot doit contenir uniquement des lettres.',
+            'submitted_word.regex' => 'Le mot doit contenir uniquement des lettres.',
         ]);
 
         if ($validator->fails()) {
@@ -66,7 +72,21 @@ class LetterGameController extends Controller
                 ]);
         }
 
-        $submittedWord = $this->normalizeWord($request->string('submitted_word')->toString());
+        $submittedWord = $this->wordValidationService->normalize(
+            $request->string('submitted_word')->toString(),
+        );
+
+        if ($submittedWord === '') {
+            return response()->view('play.letters', [
+                'ageGroup' => $ageGroup,
+                'drawId' => $draw['draw_id'],
+                'letters' => $draw['letters'],
+                'lettersCount' => count($draw['letters']),
+                'timerSeconds' => $ageGroup->letters_timer_seconds,
+                'submittedWord' => '',
+                'errorMessage' => 'Le mot doit contenir uniquement des lettres.',
+            ], 422);
+        }
 
         if (! $this->wordUsesAvailableLetters($submittedWord, $draw['letters'])) {
             return response()->view('play.letters', [
@@ -77,6 +97,23 @@ class LetterGameController extends Controller
                 'timerSeconds' => $ageGroup->letters_timer_seconds,
                 'submittedWord' => $submittedWord,
                 'errorMessage' => 'Le mot proposé utilise des lettres qui ne sont pas disponibles dans le tirage.',
+            ], 422);
+        }
+
+        $validation = $this->wordValidationService->validateForAgeGroup(
+            $submittedWord,
+            $ageGroup,
+        );
+
+        if (! $validation['valid']) {
+            return response()->view('play.letters', [
+                'ageGroup' => $ageGroup,
+                'drawId' => $draw['draw_id'],
+                'letters' => $draw['letters'],
+                'lettersCount' => count($draw['letters']),
+                'timerSeconds' => $ageGroup->letters_timer_seconds,
+                'submittedWord' => $submittedWord,
+                'errorMessage' => $validation['message'],
             ], 422);
         }
 
@@ -220,14 +257,6 @@ class LetterGameController extends Controller
         }
 
         return $letters;
-    }
-
-    /**
-     * Normalize a submitted word for validation and storage.
-     */
-    private function normalizeWord(string $submittedWord): string
-    {
-        return Str::upper(trim($submittedWord));
     }
 
     /**
