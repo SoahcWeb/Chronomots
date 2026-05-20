@@ -18,16 +18,27 @@
         @php
             $performanceLabel = $difference === 0 ? 'Cible atteinte' : ($difference <= 5 ? 'Très proche' : ($difference <= 10 ? 'Bonne approche' : 'À retenter'));
             $performanceBadge = $difference === 0 ? 'chronomots-badge--success' : ($difference <= 5 ? 'chronomots-badge--info' : ($difference <= 10 ? 'chronomots-badge--plum' : 'chronomots-badge--warning'));
+            $duelBadge = match ($duelOutcome) {
+                'Victoire' => 'chronomots-badge--success',
+                'Défaite' => 'chronomots-badge--warning',
+                'Égalité' => 'chronomots-badge--info',
+                default => null,
+            };
         @endphp
 
         <div class="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.05fr_0.95fr]">
             <section class="chronomots-panel chronomots-result-shell rounded-[2rem] p-6 sm:p-8">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <span class="chronomots-badge {{ $performanceBadge }}">{{ $performanceLabel }}</span>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="chronomots-badge {{ $performanceBadge }}">{{ $performanceLabel }}</span>
+                        @if ($opponentResult && $duelBadge)
+                            <span class="chronomots-badge {{ $duelBadge }}">{{ $duelOutcome }}</span>
+                        @endif
+                    </div>
                     <span class="chronomots-live-pill">Résultat enregistré</span>
                 </div>
 
-                <div class="mt-6 grid gap-4 sm:grid-cols-3">
+                <div class="mt-6 grid gap-4 {{ $opponentResult ? 'sm:grid-cols-4' : 'sm:grid-cols-3' }}">
                     <div class="chronomots-score-burst rounded-[1.75rem] bg-gradient-to-br from-emerald-100 via-white to-lime-50 p-5 shadow-sm">
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Cible</p>
                         <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $targetNumber }}</p>
@@ -43,6 +54,13 @@
                         <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $score }} pts</p>
                         <p class="mt-2 text-sm leading-6 text-slate-600">Calcul du score selon la proximité avec la cible.</p>
                     </div>
+                    @if ($opponentResult)
+                        <div class="chronomots-score-burst rounded-[1.75rem] bg-gradient-to-br from-violet-100 via-white to-indigo-50 p-5 shadow-sm">
+                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-violet-700">IA {{ $opponentLevelLabel }}</p>
+                            <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $opponentResult['score'] }} pts</p>
+                            <p class="mt-2 text-sm leading-6 text-slate-600">{{ $opponentResult['quality_label'] }}</p>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="mt-8 space-y-4">
@@ -58,6 +76,14 @@
                             <span class="chronomots-pill">{{ $performanceLabel }}</span>
                         </div>
                     </div>
+
+                    @if ($opponentResult)
+                        <div class="chronomots-form-shell rounded-[1.5rem] p-5">
+                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Calcul IA</p>
+                            <p class="mt-3 text-lg font-bold text-slate-950">{{ $opponentResult['submitted_solution'] }}</p>
+                            <p class="mt-2 text-sm leading-6 text-slate-600">Résultat {{ $opponentResult['result_value'] }} • Écart {{ $opponentResult['difference'] }}</p>
+                        </div>
+                    @endif
 
                     <div class="rounded-[1.75rem] border border-white/70 bg-white/55 p-5">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -91,7 +117,7 @@
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Type</p>
                         <div class="mt-2 flex items-center justify-between gap-3">
                             <p class="text-lg font-bold text-slate-950">Chiffres</p>
-                            <span class="chronomots-badge chronomots-badge--plum">Solo</span>
+                            <span class="chronomots-badge chronomots-badge--plum">{{ $opponentResult ? 'VS IA' : 'Solo' }}</span>
                         </div>
                     </div>
                     <div class="chronomots-soft-card rounded-[1.5rem] p-4">
@@ -102,6 +128,12 @@
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Calcul enregistré</p>
                         <p class="mt-2 text-lg font-bold text-slate-950">{{ $numberRound->submitted_solution }}</p>
                     </div>
+                    @if ($opponentResult)
+                        <div class="chronomots-soft-card rounded-[1.5rem] p-4">
+                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Score IA</p>
+                            <p class="mt-2 text-lg font-bold text-slate-950">{{ $opponentResult['score'] }} pts</p>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="mt-6 chronomots-mini-grid">
@@ -115,8 +147,19 @@
                     </div>
                 </div>
 
+                @if ($opponentResult)
+                    <div class="mt-6 chronomots-form-shell rounded-[1.5rem] p-4">
+                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Comparaison joueur vs IA</p>
+                        <div class="mt-2 flex items-center justify-between gap-4">
+                            <p class="text-sm font-semibold text-slate-950">Toi: {{ $score }} pts</p>
+                            <p class="text-sm font-semibold text-slate-950">IA: {{ $opponentResult['score'] }} pts</p>
+                            <span class="chronomots-pill">{{ $duelOutcome }}</span>
+                        </div>
+                    </div>
+                @endif
+
                 <div class="mt-6 flex flex-col gap-3">
-                    <a href="{{ route('play.numbers.show', $ageGroup) }}" class="chronomots-button-primary inline-flex items-center justify-center rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]">
+                    <a href="{{ route('play.numbers.show', ['ageGroup' => $ageGroup, 'opponent_level' => $opponentLevel]) }}" class="chronomots-button-primary inline-flex items-center justify-center rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]">
                         Rejouer
                     </a>
                     <a href="{{ route('play') }}" class="chronomots-button-secondary inline-flex items-center justify-center rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]">

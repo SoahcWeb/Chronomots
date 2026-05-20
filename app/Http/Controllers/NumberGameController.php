@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\AgeGroup;
 use App\Models\GameSession;
+use App\Services\GameIntelligence\GameIntelligenceManager;
+use App\Services\GameIntelligence\OpponentAiService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,22 +13,30 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\MessageBag;
-use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class NumberGameController extends Controller
 {
     private const SESSION_KEY = 'chronomots.numbers.draws';
+
+    public function __construct(
+        private readonly GameIntelligenceManager $gameIntelligenceManager,
+        private readonly OpponentAiService $opponentAiService,
+    ) {
+    }
 
     /**
      * Display a new numbers game for the selected age group.
      */
     public function show(Request $request, AgeGroup $ageGroup): View
     {
-        $draw = $this->createDrawPayload($ageGroup);
+        $opponentLevel = $this->opponentAiService->normalizeLevel($request->query('opponent_level'));
+        $draw = $this->gameIntelligenceManager->createNumbersDraw($ageGroup);
+        $draw['opponent_level'] = $opponentLevel;
 
         $request->session()->put(self::SESSION_KEY.'.'.$draw['draw_id'], $draw);
 
-        return $this->renderGameView($ageGroup, $draw);
+        return $this->renderGameView($ageGroup, $draw, null, '', $opponentLevel);
     }
 
     /**
@@ -37,12 +47,17 @@ class NumberGameController extends Controller
         $validator = Validator::make($request->all(), [
             'draw_id' => ['required', 'string'],
             'submitted_solution' => ['required', 'string', 'max:255'],
+            'opponent_level' => ['nullable', Rule::in(array_keys($this->opponentAiService->levels()))],
         ], [
             'submitted_solution.required' => 'Entre un calcul avant de valider.',
         ]);
 
+        $opponentLevel = $this->opponentAiService->normalizeLevel($request->string('opponent_level')->toString());
+
         if ($validator->fails()) {
-            $draw = $this->findExistingDraw($request, $request->string('draw_id')->toString()) ?? $this->createDrawPayload($ageGroup);
+            $draw = $this->findExistingDraw($request, $request->string('draw_id')->toString())
+                ?? $this->gameIntelligenceManager->createNumbersDraw($ageGroup);
+            $draw['opponent_level'] = $opponentLevel;
 
             return response()->view('play.numbers', [
                 'ageGroup' => $ageGroup,
@@ -52,6 +67,8 @@ class NumberGameController extends Controller
                 'timerSeconds' => $ageGroup->numbers_timer_seconds,
                 'submittedSolution' => $request->string('submitted_solution')->toString(),
                 'errorMessage' => $validator->errors()->first('submitted_solution'),
+                'opponentLevel' => $opponentLevel,
+                'opponentLevelLabel' => $this->opponentAiService->labelForLevel($opponentLevel),
             ], 422);
         }
 
@@ -77,6 +94,8 @@ class NumberGameController extends Controller
                 'timerSeconds' => $ageGroup->numbers_timer_seconds,
                 'submittedSolution' => $submittedSolution,
                 'errorMessage' => $evaluation['message'],
+                'opponentLevel' => $opponentLevel ?? ($draw['opponent_level'] ?? null),
+                'opponentLevelLabel' => $this->opponentAiService->labelForLevel($opponentLevel ?? ($draw['opponent_level'] ?? null)),
             ], 422);
         }
 
@@ -85,6 +104,10 @@ class NumberGameController extends Controller
         $difference = abs($targetNumber - $resultValue);
         $score = $this->scoreForDifference($difference);
         $completedAt = now();
+        $opponentLevel = $opponentLevel ?? ($draw['opponent_level'] ?? null);
+        $opponentResult = $opponentLevel !== null
+            ? $this->opponentAiService->playNumbers($draw['numbers'], $targetNumber, $opponentLevel)
+            : null;
 
         [$gameSession, $numberRound] = DB::transaction(function () use ($request, $ageGroup, $draw, $submittedSolution, $resultValue, $score, $completedAt) {
             $gameSession = GameSession::query()->create([
@@ -125,6 +148,10 @@ class NumberGameController extends Controller
             'resultValue' => $resultValue,
             'difference' => $difference,
             'score' => $score,
+            'opponentResult' => $opponentResult,
+            'duelOutcome' => $this->duelOutcome($score, $opponentResult['score'] ?? null),
+            'opponentLevel' => $opponentLevel,
+            'opponentLevelLabel' => $this->opponentAiService->labelForLevel($opponentLevel),
         ]);
     }
 
@@ -136,7 +163,10 @@ class NumberGameController extends Controller
         array $draw,
         ?MessageBag $errors = null,
         string $submittedSolution = '',
+        ?string $opponentLevel = null,
     ): View {
+        $normalizedOpponentLevel = $opponentLevel ?? ($draw['opponent_level'] ?? null);
+
         return view('play.numbers', [
             'ageGroup' => $ageGroup,
             'drawId' => $draw['draw_id'],
@@ -145,56 +175,9 @@ class NumberGameController extends Controller
             'timerSeconds' => $ageGroup->numbers_timer_seconds,
             'submittedSolution' => $submittedSolution,
             'errorMessage' => $errors?->first('submitted_solution'),
+            'opponentLevel' => $normalizedOpponentLevel,
+            'opponentLevelLabel' => $this->opponentAiService->labelForLevel($normalizedOpponentLevel),
         ]);
-    }
-
-    /**
-     * Create the draw payload stored in session for a single play.
-     */
-    private function createDrawPayload(AgeGroup $ageGroup): array
-    {
-        [$numbers, $targetNumber] = match (true) {
-            $ageGroup->min_age >= 14 => [$this->generateExpertNumbers(), random_int(100, 999)],
-            $ageGroup->min_age >= 10 => [$this->generateRangeNumbers(5, 1, 25), random_int(50, 300)],
-            default => [$this->generateRangeNumbers(4, 1, 10), random_int(10, 50)],
-        };
-
-        return [
-            'draw_id' => Str::uuid()->toString(),
-            'numbers' => $numbers,
-            'target_number' => $targetNumber,
-            'started_at' => now()->toDateTimeString(),
-        ];
-    }
-
-    /**
-     * Generate a set of small numbers.
-     *
-     * @return array<int, int>
-     */
-    private function generateRangeNumbers(int $count, int $min, int $max): array
-    {
-        $numbers = [];
-
-        for ($index = 0; $index < $count; $index++) {
-            $numbers[] = random_int($min, $max);
-        }
-
-        return $numbers;
-    }
-
-    /**
-     * Generate an expert set with small and large numbers.
-     *
-     * @return array<int, int>
-     */
-    private function generateExpertNumbers(): array
-    {
-        $smallNumbers = $this->generateRangeNumbers(4, 1, 10);
-        $largePool = [25, 50, 75, 100];
-        shuffle($largePool);
-
-        return array_merge($smallNumbers, array_slice($largePool, 0, 2));
     }
 
     /**
@@ -462,6 +445,19 @@ class NumberGameController extends Controller
             $difference <= 5 => 50,
             $difference <= 10 => 25,
             default => 0,
+        };
+    }
+
+    private function duelOutcome(int $playerScore, ?int $opponentScore): ?string
+    {
+        if ($opponentScore === null) {
+            return null;
+        }
+
+        return match (true) {
+            $playerScore > $opponentScore => 'Victoire',
+            $playerScore < $opponentScore => 'Défaite',
+            default => 'Égalité',
         };
     }
 }

@@ -128,6 +128,30 @@
                                 Jouer aux chiffres
                             </a>
                         </div>
+
+                        <div class="mt-5 space-y-3">
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">VS IA Lettres</p>
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    @foreach ($aiLevels as $aiLevel => $aiLabel)
+                                        <a href="{{ route('play.letters.show', ['ageGroup' => $ageGroup, 'opponent_level' => $aiLevel]) }}" class="chronomots-pill">
+                                            {{ $aiLabel }}
+                                        </a>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">VS IA Chiffres</p>
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    @foreach ($aiLevels as $aiLevel => $aiLabel)
+                                        <a href="{{ route('play.numbers.show', ['ageGroup' => $ageGroup, 'opponent_level' => $aiLevel]) }}" class="chronomots-pill">
+                                            {{ $aiLabel }}
+                                        </a>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
                     </article>
                 @empty
                     <article class="chronomots-panel rounded-[2rem] p-6 text-center sm:p-8 xl:col-span-3">

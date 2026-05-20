@@ -1,4 +1,9 @@
 <x-app-layout>
+    @php
+        $opponentLevel = $opponentLevel ?? null;
+        $opponentLevelLabel = $opponentLevelLabel ?? null;
+    @endphp
+
     <x-slot name="header">
         <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -22,6 +27,9 @@
                         <div class="flex flex-wrap gap-2">
                             <span class="chronomots-badge chronomots-badge--plum">Tirage en cours</span>
                             <span class="chronomots-live-pill">Mode chiffres</span>
+                            @if ($opponentLevelLabel)
+                                <span class="chronomots-live-pill">VS IA {{ $opponentLevelLabel }}</span>
+                            @endif
                         </div>
                         <h2 class="mt-5 text-3xl font-black tracking-[-0.04em] text-slate-950">
                             Atteins la cible {{ $targetNumber }}
@@ -33,6 +41,9 @@
                             <span class="chronomots-pill">{{ $ageGroup->name }}</span>
                             <span class="chronomots-pill">{{ $timerSeconds }} secondes</span>
                             <span class="chronomots-pill">Objectif : viser juste</span>
+                            @if ($opponentLevelLabel)
+                                <span class="chronomots-pill">Adversaire {{ $opponentLevelLabel }}</span>
+                            @endif
                         </div>
                     </div>
 
@@ -79,6 +90,7 @@
                 >
                     @csrf
                     <input type="hidden" name="draw_id" value="{{ $drawId }}">
+                    <input type="hidden" name="opponent_level" value="{{ $opponentLevel }}">
 
                     <div>
                         <label for="submitted_solution" class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -114,7 +126,7 @@
                         >
                             Valider mon calcul
                         </button>
-                        <a href="{{ route('play.numbers.show', $ageGroup) }}" class="chronomots-button-secondary inline-flex items-center justify-center rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]">
+                        <a href="{{ route('play.numbers.show', ['ageGroup' => $ageGroup, 'opponent_level' => $opponentLevel]) }}" class="chronomots-button-secondary inline-flex items-center justify-center rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]">
                             Nouveau tirage
                         </a>
                     </div>
@@ -129,6 +141,15 @@
                 </p>
 
                 <div class="mt-6 space-y-3">
+                    @if ($opponentLevelLabel)
+                        <div class="chronomots-soft-card rounded-[1.5rem] p-4">
+                            <div class="flex items-center justify-between gap-3">
+                                <p class="font-semibold text-slate-950">Duel activé</p>
+                                <span class="chronomots-badge chronomots-badge--plum">VS IA</span>
+                            </div>
+                            <p class="mt-1 text-sm leading-6 text-slate-600">Tu affrontes une IA de niveau {{ strtolower($opponentLevelLabel) }} sur la même cible.</p>
+                        </div>
+                    @endif
                     <div class="chronomots-soft-card rounded-[1.5rem] p-4">
                         <div class="flex items-center justify-between gap-3">
                             <p class="font-semibold text-slate-950">Exact</p>

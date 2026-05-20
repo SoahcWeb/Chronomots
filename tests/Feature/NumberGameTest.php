@@ -136,4 +136,48 @@ class NumberGameTest extends TestCase
         $this->assertDatabaseCount('game_sessions', 0);
         $this->assertDatabaseCount('number_rounds', 0);
     }
+
+    public function test_numbers_game_can_display_vs_ai_results(): void
+    {
+        $user = User::factory()->create();
+        $ageGroup = AgeGroup::query()->create([
+            'name' => '14+',
+            'min_age' => 14,
+            'max_age' => null,
+            'description' => 'Mode expert',
+            'letters_timer_seconds' => 45,
+            'numbers_timer_seconds' => 60,
+        ]);
+
+        $drawId = 'draw-test-ai-numbers';
+
+        $response = $this
+            ->withSession([
+                'chronomots' => [
+                    'numbers' => [
+                        'draws' => [
+                            $drawId => [
+                                'draw_id' => $drawId,
+                                'numbers' => [100, 25, 5, 4, 3, 2],
+                                'target_number' => 130,
+                                'started_at' => now()->subSeconds(15)->toDateTimeString(),
+                                'opponent_level' => 'expert',
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->actingAs($user)
+            ->post(route('play.numbers.submit', $ageGroup), [
+                'draw_id' => $drawId,
+                'submitted_solution' => '100 + 25 + 5',
+                'opponent_level' => 'expert',
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertSee('VS IA')
+            ->assertSee('IA Expert')
+            ->assertSee('Comparaison joueur vs IA');
+    }
 }

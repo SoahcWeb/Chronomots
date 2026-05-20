@@ -235,4 +235,63 @@ class LetterGameTest extends TestCase
         $this->assertDatabaseCount('game_sessions', 0);
         $this->assertDatabaseCount('letter_rounds', 0);
     }
+
+    public function test_letters_game_can_display_vs_ai_results(): void
+    {
+        $user = User::factory()->create();
+        $ageGroup = AgeGroup::query()->create([
+            'name' => '10-13 ans',
+            'min_age' => 10,
+            'max_age' => 13,
+            'description' => 'Mode entraînement',
+            'letters_timer_seconds' => 60,
+            'numbers_timer_seconds' => 90,
+        ]);
+
+        Word::query()->create([
+            'word' => 'mots',
+            'normalized_word' => 'MOTS',
+            'length' => 4,
+            'frequency' => 95,
+            'age_level' => '7-9',
+        ]);
+
+        Word::query()->create([
+            'word' => 'mare',
+            'normalized_word' => 'MARE',
+            'length' => 4,
+            'frequency' => 62,
+            'age_level' => '7-9',
+        ]);
+
+        $drawId = 'draw-test-ai-letters';
+
+        $response = $this
+            ->withSession([
+                'chronomots' => [
+                    'letters' => [
+                        'draws' => [
+                            $drawId => [
+                                'draw_id' => $drawId,
+                                'letters' => ['M', 'A', 'R', 'O', 'T', 'E', 'S', 'L'],
+                                'started_at' => now()->subSeconds(15)->toDateTimeString(),
+                                'opponent_level' => 'expert',
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->actingAs($user)
+            ->post(route('play.letters.submit', $ageGroup), [
+                'draw_id' => $drawId,
+                'submitted_word' => 'mots',
+                'opponent_level' => 'expert',
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertSee('VS IA')
+            ->assertSee('IA Expert')
+            ->assertSee('Comparaison joueur vs IA');
+    }
 }
