@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\LetterGameController;
+use App\Http\Controllers\NumberGameController;
 use App\Http\Controllers\PlayController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -16,6 +17,8 @@ Route::get('/dashboard', function () {
 Route::middleware('auth')->group(function () {
     Route::get('/play/letters/{ageGroup}', [LetterGameController::class, 'show'])->name('play.letters.show');
     Route::post('/play/letters/{ageGroup}/submit', [LetterGameController::class, 'submit'])->name('play.letters.submit');
+    Route::get('/play/numbers/{ageGroup}', [NumberGameController::class, 'show'])->name('play.numbers.show');
+    Route::post('/play/numbers/{ageGroup}/submit', [NumberGameController::class, 'submit'])->name('play.numbers.submit');
     Route::view('/profile', 'profile.show')->name('profile.show');
     Route::get('/profile/settings', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

@@ -102,9 +102,9 @@
                             <a href="{{ route('play.letters.show', $ageGroup) }}" class="chronomots-button-primary inline-flex items-center justify-center rounded-full px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]">
                                 Jouer aux lettres
                             </a>
-                            <button type="button" disabled class="chronomots-button-secondary inline-flex items-center justify-center rounded-full px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.18em] opacity-60">
+                            <a href="{{ route('play.numbers.show', $ageGroup) }}" class="chronomots-button-secondary inline-flex items-center justify-center rounded-full px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]">
                                 Jouer aux chiffres
-                            </button>
+                            </a>
                         </div>
                     </article>
                 @empty
