@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', 'Chronomots') }}</title>
+        <title>{{ config('app.name', 'Chronomots') }} | Nethra Gaming</title>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
@@ -19,7 +19,7 @@
             <div class="chronomots-orb chronomots-orb--one"></div>
             <div class="chronomots-orb chronomots-orb--two"></div>
 
-            <div class="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <div class="mx-auto grid min-h-[calc(100vh-8rem)] w-full max-w-6xl items-center gap-6 lg:grid-cols-[0.95fr_1.05fr]">
                 <aside class="chronomots-panel hidden rounded-[2rem] p-8 text-slate-800 lg:block">
                     <a href="{{ url('/') }}" class="inline-flex">
                         <x-application-logo />
@@ -63,6 +63,10 @@
 
                     {{ $slot }}
                 </div>
+            </div>
+
+            <div class="mx-auto mt-6 max-w-6xl">
+                @include('layouts.footer')
             </div>
         </div>
     </body>
