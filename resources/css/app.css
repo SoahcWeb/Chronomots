@@ -1,11 +1,139 @@
-@import 'tailwindcss';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-@source '../**/*.blade.php';
-@source '../**/*.js';
+:root {
+    --chronomots-navy: #11203b;
+    --chronomots-ink: #1d3158;
+    --chronomots-sky: #5fd0ff;
+    --chronomots-teal: #28c7a8;
+    --chronomots-lime: #c8f169;
+    --chronomots-amber: #ffca62;
+    --chronomots-coral: #ff7f66;
+    --chronomots-paper: #f5fbff;
+}
 
-@theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+body {
+    min-height: 100vh;
+    color: var(--chronomots-navy);
+    background:
+        radial-gradient(circle at top left, rgba(95, 208, 255, 0.24), transparent 30%),
+        radial-gradient(circle at top right, rgba(255, 127, 102, 0.18), transparent 24%),
+        linear-gradient(180deg, #eef7ff 0%, #f7fcff 48%, #eef8f4 100%);
+}
+
+::selection {
+    color: white;
+    background: rgba(29, 49, 88, 0.82);
+}
+
+.chronomots-grid {
+    position: relative;
+    isolation: isolate;
+}
+
+.chronomots-grid::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background-image:
+        linear-gradient(rgba(17, 32, 59, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(17, 32, 59, 0.035) 1px, transparent 1px);
+    background-size: 30px 30px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent 92%);
+}
+
+.chronomots-panel {
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid rgba(110, 145, 193, 0.2);
+    box-shadow: 0 24px 80px rgba(17, 32, 59, 0.12);
+    backdrop-filter: blur(18px);
+}
+
+.chronomots-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.86);
+    border: 1px solid rgba(110, 145, 193, 0.24);
+    padding: 0.45rem 0.9rem;
+    color: var(--chronomots-ink);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.chronomots-badge::before {
+    content: "";
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, var(--chronomots-coral), var(--chronomots-amber));
+    box-shadow: 0 0 0 4px rgba(255, 202, 98, 0.16);
+}
+
+.chronomots-wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.9rem;
+    color: var(--chronomots-navy);
+}
+
+.chronomots-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: 1rem;
+    background: linear-gradient(145deg, var(--chronomots-sky), var(--chronomots-teal) 58%, var(--chronomots-lime));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        0 14px 30px rgba(40, 199, 168, 0.28);
+}
+
+.chronomots-mark span {
+    color: #0f1b35;
+    font-size: 1.05rem;
+    font-weight: 900;
+    letter-spacing: -0.05em;
+}
+
+.chronomots-orb {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(10px);
+    opacity: 0.6;
+    z-index: -1;
+    animation: chronomots-float 14s ease-in-out infinite;
+}
+
+.chronomots-orb--one {
+    width: 14rem;
+    height: 14rem;
+    top: 5rem;
+    right: -3rem;
+    background: radial-gradient(circle, rgba(95, 208, 255, 0.55), rgba(95, 208, 255, 0));
+}
+
+.chronomots-orb--two {
+    width: 11rem;
+    height: 11rem;
+    bottom: 3rem;
+    left: -2rem;
+    background: radial-gradient(circle, rgba(255, 127, 102, 0.35), rgba(255, 127, 102, 0));
+    animation-delay: -4s;
+}
+
+@keyframes chronomots-float {
+    0%,
+    100% {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+        transform: translate3d(0, -12px, 0) scale(1.04);
+    }
 }
