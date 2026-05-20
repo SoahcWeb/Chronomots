@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Achievement;
 use App\Models\AgeGroup;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -26,9 +27,21 @@ class DashboardController extends Controller
         $bestLettersScore = $completedSessions->where('game_type', 'letters')->max('score') ?? 0;
         $bestNumbersScore = $completedSessions->where('game_type', 'numbers')->max('score') ?? 0;
         $averageScore = $totalGames > 0 ? (int) round((float) $completedSessions->avg('score')) : 0;
+        $totalScore = (int) $completedSessions->sum('score');
 
         $ageGroups = AgeGroup::query()
             ->orderBy('min_age')
+            ->get();
+
+        $unlockedAchievements = $user->userAchievements()
+            ->with('achievement')
+            ->whereNotNull('unlocked_at')
+            ->orderByDesc('unlocked_at')
+            ->get();
+
+        $achievementCatalog = Achievement::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
             ->get();
 
         $recentSessions = $completedSessions->take(5)->values();
@@ -68,6 +81,7 @@ class DashboardController extends Controller
             'bestLettersScore' => $bestLettersScore,
             'bestNumbersScore' => $bestNumbersScore,
             'averageScore' => $averageScore,
+            'totalScore' => $totalScore,
             'recentSessions' => $recentSessions,
             'progression' => $progression,
             'lettersGamesCount' => $lettersGamesCount,
@@ -76,6 +90,9 @@ class DashboardController extends Controller
             'activeCategories' => $activeCategories,
             'preferredAgeGroup' => $preferredAgeGroup,
             'hasGames' => $totalGames > 0,
+            'unlockedAchievements' => $unlockedAchievements,
+            'achievementCatalog' => $achievementCatalog,
+            'unlockedAchievementsCount' => $unlockedAchievements->count(),
         ]);
     }
 }

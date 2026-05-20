@@ -1,4 +1,9 @@
 <x-app-layout>
+    @php
+        $unlockedAchievementIds = $unlockedAchievements->pluck('achievement_id')->all();
+        $unlockedAchievementMap = $unlockedAchievements->keyBy('achievement_id');
+    @endphp
+
     <x-slot name="header">
         <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -110,7 +115,70 @@
                                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Catégories actives</p>
                                 <p class="mt-3 text-xl font-black text-slate-950">{{ $activeCategories }}</p>
                             </div>
+                            <div class="chronomots-soft-card rounded-[1.5rem] p-5">
+                                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Succès débloqués</p>
+                                <p class="mt-3 text-xl font-black text-slate-950">{{ $unlockedAchievementsCount }}</p>
+                            </div>
+                            <div class="chronomots-soft-card rounded-[1.5rem] p-5">
+                                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Score cumulé</p>
+                                <p class="mt-3 text-xl font-black text-slate-950">{{ $totalScore }}</p>
+                            </div>
                         </div>
+                    </div>
+
+                    <div class="chronomots-panel rounded-[2rem] p-6 sm:p-8">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                            <div>
+                                <p class="text-sm font-semibold uppercase tracking-[0.22em] text-slate-500">Succès Chronomots</p>
+                                <h2 class="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950">Badges et progression</h2>
+                            </div>
+
+                            <p class="max-w-md text-sm leading-6 text-slate-600">
+                                Tes badges débloqués s’affichent ici, avec le reste des objectifs encore à atteindre.
+                            </p>
+                        </div>
+
+                        @if ($achievementCatalog->isEmpty())
+                            <div class="mt-6 rounded-[1.75rem] border border-dashed border-slate-200 bg-white/70 p-6 text-center">
+                                <p class="text-lg font-bold text-slate-950">Aucun succès configuré pour le moment</p>
+                                <p class="mt-2 text-sm leading-6 text-slate-600">
+                                    Le catalogue de badges apparaîtra ici dès que les succès seront disponibles.
+                                </p>
+                            </div>
+                        @else
+                            <div class="mt-6 grid gap-3 lg:grid-cols-2">
+                                @foreach ($achievementCatalog as $achievement)
+                                    @php
+                                        $userAchievement = $unlockedAchievementMap->get($achievement->id);
+                                        $isUnlocked = in_array($achievement->id, $unlockedAchievementIds, true);
+                                    @endphp
+
+                                    <article class="chronomots-soft-card rounded-[1.5rem] p-5 {{ $isUnlocked ? 'ring-1 ring-emerald-200/80' : 'opacity-80' }}">
+                                        <div class="flex items-start justify-between gap-4">
+                                            <div class="flex items-start gap-4">
+                                                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.2rem] bg-white/90 text-base font-black tracking-[-0.04em] text-slate-950 shadow-sm">
+                                                    {{ $achievement->icon }}
+                                                </div>
+                                                <div>
+                                                    <p class="text-lg font-black text-slate-950">{{ $achievement->name }}</p>
+                                                    <p class="mt-1 text-sm leading-6 text-slate-600">{{ $achievement->description }}</p>
+                                                </div>
+                                            </div>
+
+                                            <span class="chronomots-badge {{ $isUnlocked ? 'chronomots-badge--success' : 'chronomots-badge--info' }}">
+                                                {{ $isUnlocked ? 'Débloqué' : 'À débloquer' }}
+                                            </span>
+                                        </div>
+
+                                        @if ($isUnlocked && $userAchievement?->unlocked_at)
+                                            <p class="mt-4 text-sm leading-6 text-emerald-700">
+                                                Débloqué le {{ $userAchievement->unlocked_at->format('d/m/Y à H:i') }}
+                                            </p>
+                                        @endif
+                                    </article>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
 
                     <div class="chronomots-panel rounded-[2rem] p-6 sm:p-8">

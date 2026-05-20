@@ -2,9 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\Achievement;
 use App\Models\AgeGroup;
 use App\Models\GameSession;
 use App\Models\User;
+use App\Models\UserAchievement;
+use App\Services\AchievementService;
+use Database\Seeders\AchievementSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -38,6 +42,8 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_displays_player_statistics_and_recent_games(): void
     {
+        $this->seed(AchievementSeeder::class);
+
         $user = User::factory()->create();
 
         $junior = AgeGroup::query()->create([
@@ -78,6 +84,17 @@ class DashboardTest extends TestCase
             'completed_at' => now()->subMinutes(4),
         ]);
 
+        $achievement = Achievement::query()
+            ->where('code', AchievementService::FIRST_VALID_WORD)
+            ->first();
+
+        UserAchievement::query()->create([
+            'user_id' => $user->id,
+            'achievement_id' => $achievement->id,
+            'progress_value' => 1,
+            'unlocked_at' => now()->subMinute(),
+        ]);
+
         $response = $this
             ->actingAs($user)
             ->get(route('dashboard'));
@@ -89,6 +106,10 @@ class DashboardTest extends TestCase
             ->assertSee('14+')
             ->assertSee('Lettres')
             ->assertSee('Chiffres')
+            ->assertSee('Badges et progression')
+            ->assertSee('Premier Mot')
+            ->assertSee('Débloqué')
+            ->assertSee('Score cumulé')
             ->assertSee('100')
             ->assertSee('70');
     }

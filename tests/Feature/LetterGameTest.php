@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\Achievement;
 use App\Models\AgeGroup;
 use App\Models\GameSession;
 use App\Models\LetterRound;
 use App\Models\User;
 use App\Models\Word;
+use App\Services\AchievementService;
+use Database\Seeders\AchievementSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -293,5 +296,69 @@ class LetterGameTest extends TestCase
             ->assertSee('VS IA')
             ->assertSee('IA Expert')
             ->assertSee('Comparaison joueur vs IA');
+    }
+
+    public function test_letters_game_unlocks_and_displays_first_word_achievement(): void
+    {
+        $this->seed(AchievementSeeder::class);
+
+        $user = User::factory()->create();
+        $ageGroup = AgeGroup::query()->create([
+            'name' => '10-13 ans',
+            'min_age' => 10,
+            'max_age' => 13,
+            'description' => 'Mode entraînement',
+            'letters_timer_seconds' => 60,
+            'numbers_timer_seconds' => 90,
+        ]);
+
+        Word::query()->create([
+            'word' => 'mots',
+            'normalized_word' => 'MOTS',
+            'length' => 4,
+            'frequency' => 95,
+            'age_level' => '7-9',
+        ]);
+
+        $drawId = 'draw-test-achievement-letters';
+
+        $response = $this
+            ->withSession([
+                'chronomots' => [
+                    'letters' => [
+                        'draws' => [
+                            $drawId => [
+                                'draw_id' => $drawId,
+                                'letters' => ['M', 'A', 'R', 'O', 'T', 'E', 'S', 'L'],
+                                'started_at' => now()->subSeconds(15)->toDateTimeString(),
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->actingAs($user)
+            ->post(route('play.letters.submit', $ageGroup), [
+                'draw_id' => $drawId,
+                'submitted_word' => 'mots',
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertSee('Succès débloqués')
+            ->assertSee('Premier Mot');
+
+        $achievementId = Achievement::query()
+            ->where('code', AchievementService::FIRST_VALID_WORD)
+            ->value('id');
+
+        $this->assertNotNull($achievementId);
+        $this->assertDatabaseHas('user_achievements', [
+            'user_id' => $user->id,
+            'achievement_id' => $achievementId,
+            'progress_value' => 1,
+        ]);
+        $this->assertNotNull(
+            $user->fresh()->userAchievements()->where('achievement_id', $achievementId)->value('unlocked_at'),
+        );
     }
 }

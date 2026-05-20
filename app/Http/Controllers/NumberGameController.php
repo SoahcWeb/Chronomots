@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AgeGroup;
 use App\Models\GameSession;
+use App\Services\AchievementService;
 use App\Services\GameIntelligence\GameIntelligenceManager;
 use App\Services\GameIntelligence\OpponentAiService;
 use Illuminate\Contracts\View\View;
@@ -20,6 +21,7 @@ class NumberGameController extends Controller
     private const SESSION_KEY = 'chronomots.numbers.draws';
 
     public function __construct(
+        private readonly AchievementService $achievementService,
         private readonly GameIntelligenceManager $gameIntelligenceManager,
         private readonly OpponentAiService $opponentAiService,
     ) {
@@ -108,6 +110,7 @@ class NumberGameController extends Controller
         $opponentResult = $opponentLevel !== null
             ? $this->opponentAiService->playNumbers($draw['numbers'], $targetNumber, $opponentLevel)
             : null;
+        $duelOutcome = $this->duelOutcome($score, $opponentResult['score'] ?? null);
 
         [$gameSession, $numberRound] = DB::transaction(function () use ($request, $ageGroup, $draw, $submittedSolution, $resultValue, $score, $completedAt) {
             $gameSession = GameSession::query()->create([
@@ -136,6 +139,15 @@ class NumberGameController extends Controller
             return [$gameSession->fresh(), $numberRound];
         });
 
+        $unlockedAchievements = $this->achievementService->unlockForCompletedGame(
+            $request->user(),
+            $gameSession,
+            [
+                'opponent_level' => $opponentLevel,
+                'duel_outcome' => $duelOutcome,
+            ],
+        );
+
         $request->session()->forget(self::SESSION_KEY.'.'.$draw['draw_id']);
 
         return view('play.numbers-result', [
@@ -149,9 +161,10 @@ class NumberGameController extends Controller
             'difference' => $difference,
             'score' => $score,
             'opponentResult' => $opponentResult,
-            'duelOutcome' => $this->duelOutcome($score, $opponentResult['score'] ?? null),
+            'duelOutcome' => $duelOutcome,
             'opponentLevel' => $opponentLevel,
             'opponentLevelLabel' => $this->opponentAiService->labelForLevel($opponentLevel),
+            'unlockedAchievements' => $unlockedAchievements,
         ]);
     }
 

@@ -1,4 +1,8 @@
 <x-app-layout>
+    @php
+        $unlockedAchievements = $unlockedAchievements ?? collect();
+    @endphp
+
     <x-slot name="header">
         <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -126,6 +130,25 @@
                             <p class="text-sm font-semibold text-slate-950">Toi: {{ $score }} pts</p>
                             <p class="text-sm font-semibold text-slate-950">IA: {{ $opponentResult['score'] }} pts</p>
                             <span class="chronomots-pill">{{ $duelOutcome }}</span>
+                        </div>
+                    </div>
+                @endif
+
+                @if ($unlockedAchievements->isNotEmpty())
+                    <div class="mt-6 rounded-[1.6rem] border border-emerald-200/80 bg-emerald-50/85 p-4">
+                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Succès débloqués</p>
+                        <div class="mt-3 space-y-3">
+                            @foreach ($unlockedAchievements as $achievement)
+                                <div class="flex items-start gap-3 rounded-[1.2rem] bg-white/85 px-4 py-3 shadow-sm">
+                                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1rem] bg-emerald-100 text-sm font-black text-emerald-800">
+                                        {{ $achievement->icon }}
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-black text-slate-950">{{ $achievement->name }}</p>
+                                        <p class="mt-1 text-sm leading-6 text-slate-600">{{ $achievement->description }}</p>
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
                     </div>
                 @endif
