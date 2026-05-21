@@ -21,7 +21,7 @@
 
     <div class="px-4 py-8 sm:px-6 lg:px-8">
         <div class="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-            <section x-data="chronomotsTimer({{ $timerSeconds }})" class="chronomots-panel rounded-[2rem] p-6 sm:p-8">
+            <section x-data='chronomotsTimer({ initialSeconds: {{ $initialRemainingSeconds ?? $timerSeconds }}, expiresAt: @json($expiresAtIso ?? null) })' class="chronomots-panel rounded-[2rem] p-6 sm:p-8">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <div class="flex flex-wrap gap-2">
@@ -115,7 +115,7 @@
                     </div>
 
                     <p x-show="expired" class="text-sm font-semibold text-rose-600">
-                        Temps écoulé. Le formulaire est maintenant désactivé.
+                        Temps écoulé. Le serveur refusera maintenant toute soumission pour ce tirage.
                     </p>
 
                     <div class="flex flex-col gap-3 sm:flex-row">

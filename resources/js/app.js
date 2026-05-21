@@ -10,25 +10,35 @@ const playSound = (sound) => {
     }));
 };
 
-Alpine.data('chronomotsTimer', (initialSeconds = 0) => ({
-    remaining: Number(initialSeconds) || 0,
+Alpine.data('chronomotsTimer', (config = 0) => ({
+    initialSeconds: typeof config === 'number'
+        ? Number(config) || 0
+        : Number(config?.initialSeconds) || 0,
+    expiresAt: typeof config === 'object' ? config?.expiresAt ?? null : null,
+    remaining: 0,
     expired: false,
     intervalId: null,
     lowTimeTriggered: false,
 
     init() {
+        this.syncRemaining();
+
         if (this.remaining <= 0) {
             this.expire();
             return;
         }
 
         this.intervalId = window.setInterval(() => {
-            if (this.remaining <= 1) {
+            if (this.expiresAt) {
+                this.syncRemaining();
+            } else {
+                this.remaining = Math.max(0, this.remaining - 1);
+            }
+
+            if (this.remaining <= 0) {
                 this.expire();
                 return;
             }
-
-            this.remaining -= 1;
 
             if (this.remaining <= 10 && !this.lowTimeTriggered) {
                 this.lowTimeTriggered = true;
@@ -47,6 +57,19 @@ Alpine.data('chronomotsTimer', (initialSeconds = 0) => ({
 
     get isUrgent() {
         return !this.expired && this.remaining > 0 && this.remaining < 10;
+    },
+
+    syncRemaining() {
+        if (this.expiresAt) {
+            const expiresAtTimestamp = new Date(this.expiresAt).getTime();
+
+            if (!Number.isNaN(expiresAtTimestamp)) {
+                this.remaining = Math.max(0, Math.ceil((expiresAtTimestamp - Date.now()) / 1000));
+                return;
+            }
+        }
+
+        this.remaining = Math.max(0, this.remaining || this.initialSeconds);
     },
 
     expire() {

@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'score',
     'status',
     'started_at',
+    'expires_at',
     'completed_at',
 ])]
 class GameSession extends Model
@@ -26,6 +27,7 @@ class GameSession extends Model
     {
         return [
             'started_at' => 'datetime',
+            'expires_at' => 'datetime',
             'completed_at' => 'datetime',
         ];
     }

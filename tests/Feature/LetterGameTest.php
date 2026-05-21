@@ -114,6 +114,7 @@ class LetterGameTest extends TestCase
             ->post(route('play.letters.submit', $ageGroup), [
                 'draw_id' => $drawId,
                 'submitted_word' => 'mots',
+                'score' => 9999,
             ]);
 
         $response
@@ -133,6 +134,58 @@ class LetterGameTest extends TestCase
             'submitted_word' => 'MOTS',
             'score' => 40,
         ]);
+    }
+
+    public function test_letters_game_rejects_expired_submissions_server_side(): void
+    {
+        $user = User::factory()->create();
+        $ageGroup = AgeGroup::query()->create([
+            'name' => '10-13 ans',
+            'min_age' => 10,
+            'max_age' => 13,
+            'description' => 'Mode entraînement',
+            'letters_timer_seconds' => 60,
+            'numbers_timer_seconds' => 90,
+        ]);
+        Word::query()->create([
+            'word' => 'mots',
+            'normalized_word' => 'MOTS',
+            'length' => 4,
+            'frequency' => 95,
+            'age_level' => '7-9',
+        ]);
+
+        $drawId = 'draw-test-expired-letters';
+
+        $response = $this
+            ->withSession([
+                'chronomots' => [
+                    'letters' => [
+                        'draws' => [
+                            $drawId => [
+                                'draw_id' => $drawId,
+                                'letters' => ['M', 'A', 'R', 'O', 'T', 'E', 'S', 'L'],
+                                'started_at' => now()->subSeconds(90)->toIso8601String(),
+                                'expires_at' => now()->subSecond()->toIso8601String(),
+                                'game_type' => 'letters',
+                                'age_group_id' => $ageGroup->id,
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->actingAs($user)
+            ->post(route('play.letters.submit', $ageGroup), [
+                'draw_id' => $drawId,
+                'submitted_word' => 'mots',
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertSee('Temps dépassé pour ce tirage lettres');
+
+        $this->assertDatabaseCount('game_sessions', 0);
+        $this->assertDatabaseCount('letter_rounds', 0);
     }
 
     public function test_letters_game_rejects_words_not_present_in_dictionary(): void
@@ -325,6 +378,56 @@ class LetterGameTest extends TestCase
             ->assertSee('VS IA')
             ->assertSee('IA Expert')
             ->assertSee('Comparaison joueur vs IA');
+    }
+
+    public function test_letters_game_submit_route_is_rate_limited(): void
+    {
+        $user = User::factory()->create();
+        $ageGroup = AgeGroup::query()->create([
+            'name' => '10-13 ans',
+            'min_age' => 10,
+            'max_age' => 13,
+            'description' => 'Mode entraînement',
+            'letters_timer_seconds' => 60,
+            'numbers_timer_seconds' => 90,
+        ]);
+
+        $drawId = 'draw-test-rate-limit-letters';
+        $sessionPayload = [
+            'chronomots' => [
+                'letters' => [
+                    'draws' => [
+                        $drawId => [
+                            'draw_id' => $drawId,
+                            'letters' => ['M', 'A', 'R', 'O', 'T', 'E', 'S', 'L'],
+                            'started_at' => now()->toIso8601String(),
+                            'expires_at' => now()->addMinute()->toIso8601String(),
+                            'game_type' => 'letters',
+                            'age_group_id' => $ageGroup->id,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        for ($attempt = 0; $attempt < 8; $attempt++) {
+            $this->withSession($sessionPayload)
+                ->actingAs($user)
+                ->post(route('play.letters.submit', $ageGroup), [
+                    'draw_id' => $drawId,
+                    'submitted_word' => 'motels',
+                ])
+                ->assertStatus(422);
+        }
+
+        $this->withSession($sessionPayload)
+            ->actingAs($user)
+            ->post(route('play.letters.submit', $ageGroup), [
+                'draw_id' => $drawId,
+                'submitted_word' => 'motels',
+            ])
+            ->assertStatus(429)
+            ->assertSee('Trop de tentatives sur le mode lettres');
     }
 
     public function test_letters_game_unlocks_and_displays_first_word_achievement(): void

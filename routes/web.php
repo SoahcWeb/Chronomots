@@ -20,11 +20,17 @@ Route::get('/dashboard', DashboardController::class)
 Route::middleware('auth')->group(function () {
     Route::get('/daily-challenges', [DailyChallengeController::class, 'index'])->name('daily-challenges.index');
     Route::get('/daily-challenges/{dailyChallenge}', [DailyChallengeController::class, 'show'])->name('daily-challenges.show');
-    Route::post('/daily-challenges/{dailyChallenge}/submit', [DailyChallengeController::class, 'submit'])->name('daily-challenges.submit');
+    Route::post('/daily-challenges/{dailyChallenge}/submit', [DailyChallengeController::class, 'submit'])
+        ->middleware('throttle:daily-challenge-submit')
+        ->name('daily-challenges.submit');
     Route::get('/play/letters/{ageGroup}', [LetterGameController::class, 'show'])->name('play.letters.show');
-    Route::post('/play/letters/{ageGroup}/submit', [LetterGameController::class, 'submit'])->name('play.letters.submit');
+    Route::post('/play/letters/{ageGroup}/submit', [LetterGameController::class, 'submit'])
+        ->middleware('throttle:letters-submit')
+        ->name('play.letters.submit');
     Route::get('/play/numbers/{ageGroup}', [NumberGameController::class, 'show'])->name('play.numbers.show');
-    Route::post('/play/numbers/{ageGroup}/submit', [NumberGameController::class, 'submit'])->name('play.numbers.submit');
+    Route::post('/play/numbers/{ageGroup}/submit', [NumberGameController::class, 'submit'])
+        ->middleware('throttle:numbers-submit')
+        ->name('play.numbers.submit');
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::get('/profile/settings', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

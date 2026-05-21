@@ -7,6 +7,7 @@ use App\Models\GameSession;
 use App\Services\AchievementService;
 use App\Services\AvatarCatalogService;
 use App\Services\GameIntelligence\GameIntelligenceManager;
+use App\Services\GameplaySecurityService;
 use App\Services\GameIntelligence\OpponentAiService;
 use App\Services\WordValidationService;
 use Illuminate\Contracts\View\View;
@@ -15,7 +16,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\MessageBag;
 use Illuminate\Validation\Rule;
 
 class LetterGameController extends Controller
@@ -26,6 +26,7 @@ class LetterGameController extends Controller
         private readonly AchievementService $achievementService,
         private readonly AvatarCatalogService $avatarCatalogService,
         private readonly GameIntelligenceManager $gameIntelligenceManager,
+        private readonly GameplaySecurityService $gameplaySecurityService,
         private readonly OpponentAiService $opponentAiService,
         private readonly WordValidationService $wordValidationService,
     ) {
@@ -42,7 +43,7 @@ class LetterGameController extends Controller
 
         $request->session()->put(self::SESSION_KEY.'.'.$draw['draw_id'], $draw);
 
-        return $this->renderGameView($ageGroup, $draw, null, '', $opponentLevel);
+        return view('play.letters', $this->gameViewData($ageGroup, $draw, '', null, $opponentLevel));
     }
 
     /**
@@ -66,22 +67,31 @@ class LetterGameController extends Controller
                 ?? $this->gameIntelligenceManager->createLettersDraw($ageGroup);
             $draw['opponent_level'] = $opponentLevel;
 
-            return response()->view('play.letters', [
-                'ageGroup' => $ageGroup,
-                'drawId' => $draw['draw_id'],
-                'letters' => $draw['letters'],
-                'lettersCount' => count($draw['letters']),
-                'timerSeconds' => $ageGroup->letters_timer_seconds,
-                'submittedWord' => $request->string('submitted_word')->toString(),
-                'errorMessage' => $validator->errors()->first('submitted_word'),
-                'opponentLevel' => $opponentLevel,
-                'opponentLevelLabel' => $this->opponentAiService->labelForLevel($opponentLevel),
-            ], 422);
+            $this->gameplaySecurityService->logInvalidAttempt('letters', $request, 'validation_failed', [
+                'draw_id' => $draw['draw_id'],
+                'errors' => $validator->errors()->keys(),
+            ]);
+
+            return response()->view(
+                'play.letters',
+                $this->gameViewData(
+                    $ageGroup,
+                    $draw,
+                    $request->string('submitted_word')->toString(),
+                    $validator->errors()->first('submitted_word'),
+                    $opponentLevel,
+                ),
+                422,
+            );
         }
 
         $draw = $this->findExistingDraw($request, $request->string('draw_id')->toString());
 
         if (! $draw) {
+            $this->gameplaySecurityService->logInvalidAttempt('letters', $request, 'missing_draw', [
+                'draw_id' => $request->string('draw_id')->toString(),
+            ]);
+
             return redirect()
                 ->route('play.letters.show', $ageGroup)
                 ->withErrors([
@@ -89,36 +99,83 @@ class LetterGameController extends Controller
                 ]);
         }
 
+        $draw['opponent_level'] = $opponentLevel ?? ($draw['opponent_level'] ?? null);
+
+        if (! $this->gameplaySecurityService->stateMatches($draw, 'letters', $ageGroup->id)) {
+            $this->gameplaySecurityService->logInvalidAttempt('letters', $request, 'draw_context_mismatch', [
+                'draw_id' => $draw['draw_id'] ?? null,
+                'draw_age_group_id' => $draw['age_group_id'] ?? null,
+                'draw_game_type' => $draw['game_type'] ?? null,
+            ]);
+            $request->session()->forget(self::SESSION_KEY.'.'.$request->string('draw_id')->toString());
+
+            return redirect()
+                ->route('play.letters.show', $ageGroup)
+                ->withErrors([
+                    'submitted_word' => 'Cette partie n’est plus valide. Relance un nouveau tirage.',
+                ]);
+        }
+
+        if ($this->gameplaySecurityService->isExpired($draw, $ageGroup->letters_timer_seconds)) {
+            $this->gameplaySecurityService->logExpiredSubmission('letters', $request, [
+                'draw_id' => $draw['draw_id'],
+                'started_at' => $draw['started_at'] ?? null,
+                'expires_at' => $draw['expires_at'] ?? null,
+            ]);
+            $request->session()->forget(self::SESSION_KEY.'.'.$draw['draw_id']);
+
+            return response()->view(
+                'play.letters',
+                $this->gameViewData(
+                    $ageGroup,
+                    $draw,
+                    $request->string('submitted_word')->toString(),
+                    $this->gameplaySecurityService->expirationMessage('ce tirage lettres'),
+                    $draw['opponent_level'],
+                ),
+                422,
+            );
+        }
+
         $submittedWord = $this->wordValidationService->normalize(
             $request->string('submitted_word')->toString(),
         );
 
         if ($submittedWord === '') {
-            return response()->view('play.letters', [
-                'ageGroup' => $ageGroup,
-                'drawId' => $draw['draw_id'],
-                'letters' => $draw['letters'],
-                'lettersCount' => count($draw['letters']),
-                'timerSeconds' => $ageGroup->letters_timer_seconds,
-                'submittedWord' => '',
-                'errorMessage' => 'Le mot doit contenir uniquement des lettres.',
-                'opponentLevel' => $opponentLevel ?? ($draw['opponent_level'] ?? null),
-                'opponentLevelLabel' => $this->opponentAiService->labelForLevel($opponentLevel ?? ($draw['opponent_level'] ?? null)),
-            ], 422);
+            $this->gameplaySecurityService->logInvalidAttempt('letters', $request, 'empty_normalized_word', [
+                'draw_id' => $draw['draw_id'],
+            ]);
+
+            return response()->view(
+                'play.letters',
+                $this->gameViewData(
+                    $ageGroup,
+                    $draw,
+                    '',
+                    'Le mot doit contenir uniquement des lettres.',
+                    $draw['opponent_level'],
+                ),
+                422,
+            );
         }
 
         if (! $this->wordUsesAvailableLetters($submittedWord, $draw['letters'])) {
-            return response()->view('play.letters', [
-                'ageGroup' => $ageGroup,
-                'drawId' => $draw['draw_id'],
-                'letters' => $draw['letters'],
-                'lettersCount' => count($draw['letters']),
-                'timerSeconds' => $ageGroup->letters_timer_seconds,
-                'submittedWord' => $submittedWord,
-                'errorMessage' => 'Le mot proposé utilise des lettres qui ne sont pas disponibles dans le tirage.',
-                'opponentLevel' => $opponentLevel ?? ($draw['opponent_level'] ?? null),
-                'opponentLevelLabel' => $this->opponentAiService->labelForLevel($opponentLevel ?? ($draw['opponent_level'] ?? null)),
-            ], 422);
+            $this->gameplaySecurityService->logInvalidAttempt('letters', $request, 'unavailable_letters', [
+                'draw_id' => $draw['draw_id'],
+                'submitted_word' => $submittedWord,
+            ]);
+
+            return response()->view(
+                'play.letters',
+                $this->gameViewData(
+                    $ageGroup,
+                    $draw,
+                    $submittedWord,
+                    'Le mot proposé utilise des lettres qui ne sont pas disponibles dans le tirage.',
+                    $draw['opponent_level'],
+                ),
+                422,
+            );
         }
 
         $validation = $this->wordValidationService->validateForAgeGroup(
@@ -127,22 +184,28 @@ class LetterGameController extends Controller
         );
 
         if (! $validation['valid']) {
-            return response()->view('play.letters', [
-                'ageGroup' => $ageGroup,
-                'drawId' => $draw['draw_id'],
-                'letters' => $draw['letters'],
-                'lettersCount' => count($draw['letters']),
-                'timerSeconds' => $ageGroup->letters_timer_seconds,
-                'submittedWord' => $submittedWord,
-                'errorMessage' => $validation['message'],
-                'opponentLevel' => $opponentLevel ?? ($draw['opponent_level'] ?? null),
-                'opponentLevelLabel' => $this->opponentAiService->labelForLevel($opponentLevel ?? ($draw['opponent_level'] ?? null)),
-            ], 422);
+            $this->gameplaySecurityService->logInvalidAttempt('letters', $request, 'dictionary_validation_failed', [
+                'draw_id' => $draw['draw_id'],
+                'submitted_word' => $submittedWord,
+                'validation_message' => $validation['message'],
+            ]);
+
+            return response()->view(
+                'play.letters',
+                $this->gameViewData(
+                    $ageGroup,
+                    $draw,
+                    $submittedWord,
+                    $validation['message'],
+                    $draw['opponent_level'],
+                ),
+                422,
+            );
         }
 
         $score = strlen($submittedWord) * 10;
         $completedAt = now();
-        $opponentLevel = $opponentLevel ?? ($draw['opponent_level'] ?? null);
+        $opponentLevel = $draw['opponent_level'];
         $opponentResult = $opponentLevel !== null
             ? $this->opponentAiService->playLetters($draw['letters'], $ageGroup, $opponentLevel)
             : null;
@@ -156,6 +219,7 @@ class LetterGameController extends Controller
                 'score' => 0,
                 'status' => 'started',
                 'started_at' => $draw['started_at'],
+                'expires_at' => $this->gameplaySecurityService->expiresAt($draw, $ageGroup->letters_timer_seconds),
             ]);
 
             $letterRound = $gameSession->letterRounds()->create([
@@ -206,26 +270,29 @@ class LetterGameController extends Controller
     /**
      * Render the letters game page.
      */
-    private function renderGameView(
+    private function gameViewData(
         AgeGroup $ageGroup,
         array $draw,
-        ?MessageBag $errors = null,
         string $submittedWord = '',
+        ?string $errorMessage = null,
         ?string $opponentLevel = null,
-    ): View {
+    ): array {
         $normalizedOpponentLevel = $opponentLevel ?? ($draw['opponent_level'] ?? null);
 
-        return view('play.letters', [
+        return [
             'ageGroup' => $ageGroup,
             'drawId' => $draw['draw_id'],
             'letters' => $draw['letters'],
             'lettersCount' => count($draw['letters']),
             'timerSeconds' => $ageGroup->letters_timer_seconds,
+            'initialRemainingSeconds' => $this->gameplaySecurityService->remainingSeconds($draw, $ageGroup->letters_timer_seconds),
+            'startedAtIso' => $this->gameplaySecurityService->startedAt($draw)?->toIso8601String(),
+            'expiresAtIso' => $this->gameplaySecurityService->expiresAt($draw, $ageGroup->letters_timer_seconds)?->toIso8601String(),
             'submittedWord' => $submittedWord,
-            'errorMessage' => $errors?->first('submitted_word'),
+            'errorMessage' => $errorMessage,
             'opponentLevel' => $normalizedOpponentLevel,
             'opponentLevelLabel' => $this->opponentAiService->labelForLevel($normalizedOpponentLevel),
-        ]);
+        ];
     }
 
     /**

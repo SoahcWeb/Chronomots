@@ -21,7 +21,7 @@
 
     <div class="px-4 py-8 sm:px-6 lg:px-8">
         <div class="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-            <section x-data="chronomotsTimer({{ $payload['timer_seconds'] }})" class="chronomots-panel rounded-[2rem] p-6 sm:p-8">
+            <section x-data='chronomotsTimer({ initialSeconds: {{ $initialRemainingSeconds ?? $payload['timer_seconds'] }}, expiresAt: @json($expiresAtIso ?? null) })' class="chronomots-panel rounded-[2rem] p-6 sm:p-8">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <div class="flex flex-wrap gap-2">
@@ -93,6 +93,10 @@
                             <p class="chronomots-inline-feedback mt-3 text-sm font-medium text-rose-600" data-feedback-error data-audio-autoplay="error">{{ $errorMessage }}</p>
                         @endif
                     </div>
+
+                    <p x-show="expired" class="text-sm font-semibold text-rose-600">
+                        Temps écoulé. Le serveur refusera maintenant toute tentative sur ce défi.
+                    </p>
 
                     <div class="flex flex-col gap-3 sm:flex-row">
                         <button type="submit" :disabled="expired" :class="{ 'cursor-not-allowed opacity-60 hover:translate-y-0': expired }" class="chronomots-button-primary inline-flex items-center justify-center rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]">

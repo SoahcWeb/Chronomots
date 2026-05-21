@@ -125,6 +125,8 @@ class DailyChallengeTest extends TestCase
             'ends_at' => now()->endOfDay(),
         ]);
 
+        $this->actingAs($user)->get(route('daily-challenges.show', $challenge));
+
         $response = $this
             ->actingAs($user)
             ->post(route('daily-challenges.submit', $challenge), [
@@ -208,6 +210,8 @@ class DailyChallengeTest extends TestCase
             'attempted_at' => now()->subMinutes(29),
         ]);
 
+        $this->actingAs($user)->get(route('daily-challenges.show', $challenge));
+
         $response = $this
             ->actingAs($user)
             ->post(route('daily-challenges.submit', $challenge), [
@@ -220,5 +224,124 @@ class DailyChallengeTest extends TestCase
             ->assertSee('Alice')
             ->assertSee('Bastien')
             ->assertSee('Badge parfait du jour');
+    }
+
+    public function test_daily_challenge_rejects_expired_submissions_server_side(): void
+    {
+        $user = User::factory()->create();
+        $ageGroup = AgeGroup::query()->create([
+            'name' => '10-13 ans',
+            'min_age' => 10,
+            'max_age' => 13,
+            'description' => 'Mode entraînement',
+            'letters_timer_seconds' => 60,
+            'numbers_timer_seconds' => 90,
+        ]);
+
+        Word::query()->create([
+            'word' => 'mots',
+            'normalized_word' => 'MOTS',
+            'length' => 4,
+            'frequency' => 95,
+            'age_level' => '7-9',
+        ]);
+
+        $challenge = DailyChallenge::query()->create([
+            'public_id' => (string) Str::ulid(),
+            'challenge_date' => now()->toDateString(),
+            'game_type' => 'letters',
+            'age_group_id' => $ageGroup->id,
+            'payload' => ['letters' => ['M', 'O', 'T', 'S'], 'timer_seconds' => 60],
+            'solution_payload' => ['perfect_score' => 40, 'best_length' => 4],
+            'starts_at' => now()->startOfDay(),
+            'ends_at' => now()->endOfDay(),
+        ]);
+
+        $response = $this
+            ->withSession([
+                'chronomots' => [
+                    'daily_challenges' => [
+                        'timers' => [
+                            $challenge->public_id => [
+                                'started_at' => now()->subSeconds(90)->toIso8601String(),
+                                'expires_at' => now()->subSecond()->toIso8601String(),
+                                'timer_seconds' => 60,
+                                'game_type' => 'letters',
+                                'age_group_id' => $ageGroup->id,
+                                'challenge_id' => $challenge->id,
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->actingAs($user)
+            ->post(route('daily-challenges.submit', $challenge), [
+                'submitted_word' => 'mots',
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertSee('Temps dépassé pour ce défi quotidien');
+
+        $this->assertDatabaseCount('daily_challenge_attempts', 0);
+        $this->assertDatabaseCount('game_sessions', 0);
+    }
+
+    public function test_daily_challenge_submit_route_is_rate_limited(): void
+    {
+        $user = User::factory()->create();
+        $ageGroup = AgeGroup::query()->create([
+            'name' => '14+',
+            'min_age' => 14,
+            'max_age' => null,
+            'description' => 'Mode expert',
+            'letters_timer_seconds' => 45,
+            'numbers_timer_seconds' => 60,
+        ]);
+
+        $challenge = DailyChallenge::query()->create([
+            'public_id' => (string) Str::ulid(),
+            'challenge_date' => now()->toDateString(),
+            'game_type' => 'numbers',
+            'age_group_id' => $ageGroup->id,
+            'payload' => ['numbers' => [100, 25, 5, 4, 3, 2], 'target_number' => 130, 'timer_seconds' => 60],
+            'solution_payload' => ['perfect_score' => 100, 'best_value' => 130],
+            'starts_at' => now()->startOfDay(),
+            'ends_at' => now()->endOfDay(),
+        ]);
+
+        $sessionPayload = [
+            'chronomots' => [
+                'daily_challenges' => [
+                    'timers' => [
+                        $challenge->public_id => [
+                            'started_at' => now()->toIso8601String(),
+                            'expires_at' => now()->addMinute()->toIso8601String(),
+                            'timer_seconds' => 60,
+                            'game_type' => 'numbers',
+                            'age_group_id' => $ageGroup->id,
+                            'challenge_id' => $challenge->id,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        for ($attempt = 0; $attempt < 6; $attempt++) {
+            $this->withSession($sessionPayload)
+                ->actingAs($user)
+                ->post(route('daily-challenges.submit', $challenge), [
+                    'submitted_solution' => '999 + 1',
+                ])
+                ->assertStatus(422);
+        }
+
+        $this->withSession($sessionPayload)
+            ->actingAs($user)
+            ->post(route('daily-challenges.submit', $challenge), [
+                'submitted_solution' => '999 + 1',
+            ])
+            ->assertStatus(429)
+            ->assertSee('Trop de tentatives sur les défis quotidiens');
     }
 }
