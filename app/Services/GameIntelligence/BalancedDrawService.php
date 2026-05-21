@@ -22,6 +22,7 @@ class BalancedDrawService
         $difficultyProfile = $this->ageDifficultyProfileService->forLetters($ageGroup);
         $bestCandidate = null;
         $acceptScore = (int) ($difficultyProfile->metadata['accept_score'] ?? 75);
+        $deadline = microtime(true) + (((int) ($difficultyProfile->metadata['generation_timeout_ms'] ?? 800)) / 1000);
 
         for ($attempt = 1; $attempt <= $difficultyProfile->maxGenerationAttempts; $attempt++) {
             $payload = $this->lettersDrawGenerator->generate($ageGroup, $difficultyProfile);
@@ -47,6 +48,10 @@ class BalancedDrawService
 
             if ($solvabilityReport->valid && $qualityScore >= $acceptScore) {
                 return $candidate;
+            }
+
+            if (microtime(true) >= $deadline && $bestCandidate !== null) {
+                break;
             }
         }
 

@@ -5,37 +5,139 @@ namespace App\Services\GameIntelligence;
 use App\Models\AgeGroup;
 use App\Models\Word;
 use App\Services\GameIntelligence\DTOs\DifficultyProfile;
-use App\Services\WordValidationService;
+use Illuminate\Support\Collection;
 
 class LettersDrawGenerator
 {
+    private const DEFAULT_SEED_POOL_PER_LENGTH = 80;
+
+    private const DEFAULT_SEED_EVALUATION_LIMIT = 10;
+
+    private const DEFAULT_SEED_SOLUTION_CHECK_LIMIT = 250;
+
     /**
-     * @var array<string, \Illuminate\Support\Collection<int, Word>>
+     * @var array<string, Collection<int, Word>>
      */
     private array $seedWordCache = [];
 
     public function __construct(
-        private readonly WordValidationService $wordValidationService,
+        private readonly LettersWordPoolService $lettersWordPoolService,
     ) {
     }
 
     /**
-     * Generate a candidate letters draw that already contains one age-allowed seed word.
+     * Generate a candidate letters draw that tries a bounded "smart" seed first.
+     * If nothing convincing is found quickly, fall back to a balanced raw draw.
      *
-     * @return array{letters: array<int, string>, seed_word: string|null}
+     * @return array{letters: array<int, string>, seed_word: string|null, vowel_count: int, rare_letters_count: int}
      */
     public function generate(AgeGroup $ageGroup, DifficultyProfile $difficultyProfile): array
     {
-        $letters = [];
         $seedWord = $this->pickSeedWord($ageGroup, $difficultyProfile);
-        $minVowels = (int) ($difficultyProfile->metadata['min_vowels'] ?? $difficultyProfile->vowelsCount);
-        $maxVowels = (int) ($difficultyProfile->metadata['max_vowels'] ?? $difficultyProfile->vowelsCount);
+        $letters = $seedWord !== null ? str_split((string) $seedWord->normalized_word) : [];
+        $letters = $this->fillRemainingLetters($letters, $difficultyProfile);
 
-        if ($seedWord !== null) {
-            $letters = str_split($seedWord->normalized_word);
+        shuffle($letters);
+
+        return [
+            'letters' => $letters,
+            'seed_word' => $seedWord?->normalized_word,
+            'vowel_count' => $this->countVowels($letters),
+            'rare_letters_count' => count(array_filter($letters, fn (string $letter) => $this->isRareLetter($letter))),
+        ];
+    }
+
+    private function pickSeedWord(AgeGroup $ageGroup, DifficultyProfile $difficultyProfile): ?Word
+    {
+        $seedMinLength = min(
+            $difficultyProfile->lettersCount,
+            max(2, (int) ($difficultyProfile->metadata['seed_min_length'] ?? $difficultyProfile->minBestLength)),
+        );
+        $cacheKey = $ageGroup->id.'-'.$difficultyProfile->lettersCount.'-'.$seedMinLength;
+
+        if (! isset($this->seedWordCache[$cacheKey])) {
+            $perLengthLimit = (int) ($difficultyProfile->metadata['seed_pool_per_length'] ?? self::DEFAULT_SEED_POOL_PER_LENGTH);
+            $this->seedWordCache[$cacheKey] = $this->lettersWordPoolService
+                ->frequentWords($ageGroup, $difficultyProfile->lettersCount, $perLengthLimit)
+                ->filter(fn (Word $word) => $word->length >= $seedMinLength)
+                ->values();
         }
 
+        $seedPool = $this->seedWordCache[$cacheKey];
+
+        if ($seedPool->isEmpty()) {
+            return null;
+        }
+
+        $seedCandidates = $seedPool->shuffle()->values();
+        $maxEvaluations = min(
+            $seedCandidates->count(),
+            max(1, (int) ($difficultyProfile->metadata['seed_evaluation_limit'] ?? self::DEFAULT_SEED_EVALUATION_LIMIT)),
+        );
+
+        for ($attempt = 0; $attempt < $maxEvaluations; $attempt++) {
+            $candidate = $seedCandidates->get($attempt);
+
+            if ($candidate instanceof Word && $this->seedWordProvidesEnoughSolutions($candidate, $seedPool, $difficultyProfile)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  Collection<int, Word>  $wordPool
+     */
+    private function seedWordProvidesEnoughSolutions(Word $seedWord, Collection $wordPool, DifficultyProfile $difficultyProfile): bool
+    {
+        $availableCounts = array_count_values(str_split((string) $seedWord->normalized_word));
+        $solutionsCount = 0;
+        $hasTargetWord = false;
+        $inspectedWords = 0;
+        $maxChecks = max(
+            $difficultyProfile->minSolutions,
+            (int) ($difficultyProfile->metadata['seed_solution_check_limit'] ?? self::DEFAULT_SEED_SOLUTION_CHECK_LIMIT),
+        );
+
+        foreach ($wordPool as $word) {
+            $inspectedWords++;
+
+            if (! $this->wordFitsCounts((string) $word->normalized_word, $availableCounts)) {
+                if ($inspectedWords >= $maxChecks) {
+                    break;
+                }
+
+                continue;
+            }
+
+            $solutionsCount++;
+
+            if ($word->length >= $difficultyProfile->minBestLength) {
+                $hasTargetWord = true;
+            }
+
+            if ($solutionsCount >= $difficultyProfile->minSolutions && $hasTargetWord) {
+                return true;
+            }
+
+            if ($inspectedWords >= $maxChecks) {
+                break;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int, string>  $letters
+     * @return array<int, string>
+     */
+    private function fillRemainingLetters(array $letters, DifficultyProfile $difficultyProfile): array
+    {
         $remainingSlots = max(0, $difficultyProfile->lettersCount - count($letters));
+        $minVowels = (int) ($difficultyProfile->metadata['min_vowels'] ?? $difficultyProfile->vowelsCount);
+        $maxVowels = (int) ($difficultyProfile->metadata['max_vowels'] ?? $difficultyProfile->vowelsCount);
         $targetVowels = min($maxVowels, max($minVowels, $difficultyProfile->vowelsCount));
         $currentVowels = $this->countVowels($letters);
 
@@ -47,6 +149,7 @@ class LettersDrawGenerator
             if ($vowelsStillNeeded >= $remainingLetters && $canStillUseVowel) {
                 $letters[] = $this->pickWeightedLetter($this->vowelPool(), $letters, $difficultyProfile);
                 $currentVowels++;
+
                 continue;
             }
 
@@ -65,78 +168,7 @@ class LettersDrawGenerator
             }
         }
 
-        shuffle($letters);
-
-        return [
-            'letters' => $letters,
-            'seed_word' => $seedWord?->word,
-            'vowel_count' => $currentVowels,
-            'rare_letters_count' => count(array_filter($letters, fn (string $letter) => $this->isRareLetter($letter))),
-        ];
-    }
-
-    private function pickSeedWord(AgeGroup $ageGroup, DifficultyProfile $difficultyProfile): ?Word
-    {
-        $cacheKey = $ageGroup->id.'-'.$difficultyProfile->lettersCount;
-
-        if (! isset($this->seedWordCache[$cacheKey])) {
-            $this->seedWordCache[$cacheKey] = Word::query()
-                ->where('length', '<=', $difficultyProfile->lettersCount)
-                ->get()
-                ->filter(fn (Word $word) => $this->wordValidationService->isAllowedForAgeGroup($word, $ageGroup))
-                ->sortByDesc(fn (Word $word) => (($word->frequency ?? 0) * 1000) + ($word->length * 100))
-                ->values();
-        }
-
-        /** @var \Illuminate\Support\Collection<int, Word> $words */
-        $words = $this->seedWordCache[$cacheKey];
-
-        $preferredWords = $words
-            ->filter(fn (Word $word) => $word->length >= ($difficultyProfile->metadata['seed_min_length'] ?? 0))
-            ->values();
-
-        $pool = $preferredWords->isNotEmpty() ? $preferredWords : $words;
-        $viableSeeds = $pool
-            ->filter(fn (Word $word) => $this->seedWordProvidesEnoughSolutions($word, $words, $difficultyProfile))
-            ->values();
-
-        if ($viableSeeds->isNotEmpty()) {
-            $pool = $viableSeeds;
-        }
-
-        if ($pool->isEmpty()) {
-            return null;
-        }
-
-        return $pool->random();
-    }
-
-    /**
-     * @param  \Illuminate\Support\Collection<int, Word>  $wordPool
-     */
-    private function seedWordProvidesEnoughSolutions(Word $seedWord, $wordPool, DifficultyProfile $difficultyProfile): bool
-    {
-        $availableCounts = array_count_values(str_split($seedWord->normalized_word));
-        $solutionsCount = 0;
-        $hasTargetWord = false;
-
-        foreach ($wordPool as $word) {
-            if (! $this->wordFitsCounts($word->normalized_word, $availableCounts)) {
-                continue;
-            }
-
-            $solutionsCount++;
-
-            if ($word->length >= $difficultyProfile->minBestLength) {
-                $hasTargetWord = true;
-            }
-
-            if ($solutionsCount >= $difficultyProfile->minSolutions && $hasTargetWord) {
-                return true;
-            }
-        }
-
-        return false;
+        return $letters;
     }
 
     /**

@@ -6,18 +6,14 @@ use App\Models\AgeGroup;
 use App\Models\Word;
 use App\Services\GameIntelligence\DTOs\DifficultyProfile;
 use App\Services\GameIntelligence\DTOs\SolvabilityReport;
-use App\Services\WordValidationService;
 use Illuminate\Support\Collection;
 
 class LettersSolvabilityService
 {
-    /**
-     * @var array<string, \Illuminate\Support\Collection<int, Word>>
-     */
-    private array $wordPoolCache = [];
+    private const DEFAULT_POOL_PER_LENGTH = 120;
 
     public function __construct(
-        private readonly WordValidationService $wordValidationService,
+        private readonly LettersWordPoolService $lettersWordPoolService,
     ) {
     }
 
@@ -29,7 +25,6 @@ class LettersSolvabilityService
     public function analyze(array $letters, AgeGroup $ageGroup, DifficultyProfile $difficultyProfile): SolvabilityReport
     {
         $matchingWords = $this->findCandidateWords($letters, $ageGroup);
-
         $bestWord = $matchingWords->first();
         $solutionsCount = $matchingWords->count();
         $bestLength = $bestWord?->length ?? 0;
@@ -67,36 +62,23 @@ class LettersSolvabilityService
 
         /** @var Collection<int, Word> $matchingWords */
         $matchingWords = $wordPool
-            ->filter(function (Word $word) use ($ageGroup, $availableCounts) {
-                if (! $this->wordValidationService->isAllowedForAgeGroup($word, $ageGroup)) {
-                    return false;
-                }
-
-                return $this->wordFitsCounts($word->normalized_word, $availableCounts);
-            })
-            ->sortByDesc(fn (Word $word) => ($word->length * 100000) + ($word->frequency ?? 0))
+            ->filter(fn (Word $word) => $this->wordFitsCounts((string) $word->normalized_word, $availableCounts))
+            ->sortByDesc(fn (Word $word) => ($word->length * 100000) + (int) ($word->frequency ?? 0))
             ->values();
 
         return $matchingWords;
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, Word>
+     * @return Collection<int, Word>
      */
-    private function wordPool(AgeGroup $ageGroup, int $lettersCount)
+    private function wordPool(AgeGroup $ageGroup, int $lettersCount): Collection
     {
-        $cacheKey = $ageGroup->id.'-'.$lettersCount;
-
-        if (! isset($this->wordPoolCache[$cacheKey])) {
-            $this->wordPoolCache[$cacheKey] = Word::query()
-                ->where('length', '<=', $lettersCount)
-                ->get()
-                ->filter(fn (Word $word) => $this->wordValidationService->isAllowedForAgeGroup($word, $ageGroup))
-                ->sortByDesc(fn (Word $word) => (($word->length ?? 0) * 100000) + ($word->frequency ?? 0))
-                ->values();
-        }
-
-        return $this->wordPoolCache[$cacheKey];
+        return $this->lettersWordPoolService->frequentWords(
+            $ageGroup,
+            $lettersCount,
+            self::DEFAULT_POOL_PER_LENGTH,
+        );
     }
 
     /**

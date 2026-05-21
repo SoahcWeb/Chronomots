@@ -25,7 +25,11 @@ class AgeDifficultyProfileService
                     'min_vowels' => 3,
                     'max_vowels' => 5,
                     'max_rare_letters' => 2,
+                    'seed_pool_per_length' => 100,
+                    'seed_evaluation_limit' => 8,
+                    'seed_solution_check_limit' => 180,
                     'accept_score' => 82,
+                    'generation_timeout_ms' => 850,
                 ],
             );
         }
@@ -43,7 +47,11 @@ class AgeDifficultyProfileService
                     'min_vowels' => 3,
                     'max_vowels' => 4,
                     'max_rare_letters' => 1,
+                    'seed_pool_per_length' => 90,
+                    'seed_evaluation_limit' => 7,
+                    'seed_solution_check_limit' => 160,
                     'accept_score' => 78,
+                    'generation_timeout_ms' => 800,
                 ],
             );
         }
@@ -60,7 +68,11 @@ class AgeDifficultyProfileService
                 'min_vowels' => 2,
                 'max_vowels' => 4,
                 'max_rare_letters' => 1,
+                'seed_pool_per_length' => 80,
+                'seed_evaluation_limit' => 6,
+                'seed_solution_check_limit' => 140,
                 'accept_score' => 74,
+                'generation_timeout_ms' => 750,
             ],
         );
     }

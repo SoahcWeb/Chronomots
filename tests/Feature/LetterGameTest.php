@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Word;
 use App\Services\AchievementService;
 use Database\Seeders\AchievementSeeder;
+use Database\Seeders\AgeGroupSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -42,6 +43,34 @@ class LetterGameTest extends TestCase
 
         $this->assertCount(1, $draws);
         $this->assertCount(7, array_values($draws)[0]['letters']);
+    }
+
+    public function test_letters_pages_load_for_age_group_ids_even_without_a_seed_dictionary_word(): void
+    {
+        $this->seed(AgeGroupSeeder::class);
+
+        $user = User::factory()->create();
+        $expectedLettersByAgeGroupId = [
+            1 => 7,
+            2 => 8,
+            3 => 10,
+        ];
+
+        foreach ($expectedLettersByAgeGroupId as $ageGroupId => $expectedLettersCount) {
+            $response = $this
+                ->actingAs($user)
+                ->get('/play/letters/'.$ageGroupId);
+
+            $response
+                ->assertOk()
+                ->assertSee('Mode Lettres');
+
+            $draws = session('chronomots.letters.draws', []);
+            $latestDraw = end($draws);
+
+            $this->assertIsArray($latestDraw);
+            $this->assertCount($expectedLettersCount, $latestDraw['letters']);
+        }
     }
 
     public function test_letters_game_submission_creates_a_completed_session_and_round(): void
