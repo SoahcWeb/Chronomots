@@ -4,21 +4,21 @@ namespace App\Services;
 
 use App\Models\AgeGroup;
 use App\Models\Word;
-use Illuminate\Support\Str;
 
 class WordValidationService
 {
+    public function __construct(
+        private readonly WordNormalizerService $wordNormalizerService,
+    ) {
+    }
+
     /**
-     * Normalize a word by removing accents, spaces and special characters.
+     * Normalize a player word for gameplay comparisons.
+     * The returned form stays uppercase to preserve the current UI/game flow.
      */
     public function normalize(string $word): string
     {
-        $asciiWord = Str::of($word)
-            ->ascii()
-            ->upper()
-            ->toString();
-
-        return preg_replace('/[^A-Z]/', '', $asciiWord) ?? '';
+        return strtoupper($this->wordNormalizerService->normalize($word));
     }
 
     /**
@@ -26,7 +26,7 @@ class WordValidationService
      */
     public function findWord(string $word): ?Word
     {
-        $normalizedWord = $this->normalize($word);
+        $normalizedWord = $this->wordNormalizerService->normalize($word);
 
         if ($normalizedWord === '') {
             return null;

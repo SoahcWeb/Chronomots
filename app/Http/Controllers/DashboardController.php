@@ -4,11 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\Achievement;
 use App\Models\AgeGroup;
+use App\Services\AvatarCatalogService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
+    public function __construct(
+        private readonly AvatarCatalogService $avatarCatalogService,
+    ) {
+    }
+
     /**
      * Display the player's dashboard.
      */
@@ -17,7 +23,7 @@ class DashboardController extends Controller
         $user = $request->user();
 
         $completedSessions = $user->gameSessions()
-            ->with('ageGroup')
+            ->with(['ageGroup', 'user.playerProfile'])
             ->where('status', 'completed')
             ->orderByDesc('completed_at')
             ->orderByDesc('updated_at')
@@ -93,6 +99,7 @@ class DashboardController extends Controller
             'unlockedAchievements' => $unlockedAchievements,
             'achievementCatalog' => $achievementCatalog,
             'unlockedAchievementsCount' => $unlockedAchievements->count(),
+            'playerAvatar' => $this->avatarCatalogService->avatarForUser($user),
         ]);
     }
 }

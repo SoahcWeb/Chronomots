@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Achievement;
 use App\Models\AgeGroup;
 use App\Models\GameSession;
+use App\Models\PlayerProfile;
 use App\Models\User;
 use App\Models\UserAchievement;
 use App\Services\AchievementService;
@@ -45,6 +46,12 @@ class DashboardTest extends TestCase
         $this->seed(AchievementSeeder::class);
 
         $user = User::factory()->create();
+
+        PlayerProfile::query()->create([
+            'user_id' => $user->id,
+            'avatar_type' => 'preset',
+            'avatar_slug' => 'prisme',
+        ]);
 
         $junior = AgeGroup::query()->create([
             'name' => '7-9 ans',
@@ -104,6 +111,7 @@ class DashboardTest extends TestCase
             ->assertSee('Historique récent')
             ->assertSee('7-9 ans')
             ->assertSee('14+')
+            ->assertSee('Avatar actif : Prisme')
             ->assertSee('Lettres')
             ->assertSee('Chiffres')
             ->assertSee('Badges et progression')

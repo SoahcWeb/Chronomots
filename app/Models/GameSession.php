@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'user_id',
     'age_group_id',
+    'daily_challenge_id',
     'game_type',
     'score',
     'status',
@@ -37,6 +38,11 @@ class GameSession extends Model
     public function ageGroup(): BelongsTo
     {
         return $this->belongsTo(AgeGroup::class);
+    }
+
+    public function dailyChallenge(): BelongsTo
+    {
+        return $this->belongsTo(DailyChallenge::class);
     }
 
     public function letterRounds(): HasMany

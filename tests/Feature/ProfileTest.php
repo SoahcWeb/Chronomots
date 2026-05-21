@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\UserPreference;
+use App\Models\PlayerProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -95,5 +97,49 @@ class ProfileTest extends TestCase
             ->assertRedirect('/profile');
 
         $this->assertNotNull($user->fresh());
+    }
+
+    public function test_audio_preferences_can_be_updated(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->patch('/profile/preferences', [
+                'sound_enabled' => '1',
+                'volume_level' => '55',
+            ]);
+
+        $response
+            ->assertSessionHasNoErrors()
+            ->assertRedirect('/profile/settings');
+
+        $preference = $user->fresh()->userPreference;
+
+        $this->assertInstanceOf(UserPreference::class, $preference);
+        $this->assertTrue($preference->sound_enabled);
+        $this->assertFalse($preference->music_enabled);
+        $this->assertSame(55, $preference->volume_level);
+    }
+
+    public function test_avatar_can_be_updated(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->patch('/profile/avatar', [
+                'avatar_slug' => 'nova',
+            ]);
+
+        $response
+            ->assertSessionHasNoErrors()
+            ->assertRedirect('/profile/settings');
+
+        $profile = $user->fresh()->playerProfile;
+
+        $this->assertInstanceOf(PlayerProfile::class, $profile);
+        $this->assertSame('preset', $profile->avatar_type);
+        $this->assertSame('nova', $profile->avatar_slug);
     }
 }

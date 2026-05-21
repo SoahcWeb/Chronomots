@@ -28,6 +28,9 @@
                 <div class="relative z-10 grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
                     <div>
                         <span class="chronomots-badge">Vue d’ensemble</span>
+                        <div class="mt-5">
+                            <x-player-avatar :avatar="$playerAvatar" :title="auth()->user()->name" :subtitle="'Avatar actif : '.$playerAvatar['name']" size="lg" />
+                        </div>
                         <h2 class="mt-6 text-3xl font-black tracking-[-0.04em] text-slate-950 sm:text-4xl">
                             {{ $hasGames ? 'Ta progression prend forme.' : 'Prêt pour ta première partie ?' }}
                         </h2>
@@ -205,14 +208,18 @@
                                 @foreach ($recentSessions as $session)
                                     <article class="chronomots-soft-card rounded-[1.5rem] p-4 sm:p-5">
                                         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                            <div>
-                                                <div class="flex flex-wrap items-center gap-2">
-                                                    <span class="chronomots-pill">{{ ucfirst($session->game_type) }}</span>
-                                                    <span class="chronomots-pill">{{ $session->ageGroup?->name ?? 'Catégorie inconnue' }}</span>
+                                            <div class="flex items-center gap-4">
+                                                <x-player-avatar :avatar="$playerAvatar" :title="auth()->user()->name" :subtitle="null" size="sm" />
+
+                                                <div>
+                                                    <div class="flex flex-wrap items-center gap-2">
+                                                        <span class="chronomots-pill">{{ ucfirst($session->game_type) }}</span>
+                                                        <span class="chronomots-pill">{{ $session->ageGroup?->name ?? 'Catégorie inconnue' }}</span>
+                                                    </div>
+                                                    <p class="mt-3 text-sm leading-6 text-slate-600">
+                                                        Partie terminée le {{ optional($session->completed_at ?? $session->updated_at)->format('d/m/Y à H:i') }}
+                                                    </p>
                                                 </div>
-                                                <p class="mt-3 text-sm leading-6 text-slate-600">
-                                                    Partie terminée le {{ optional($session->completed_at ?? $session->updated_at)->format('d/m/Y à H:i') }}
-                                                </p>
                                             </div>
 
                                             <div class="rounded-[1.3rem] bg-white/90 px-4 py-3 text-center shadow-sm">

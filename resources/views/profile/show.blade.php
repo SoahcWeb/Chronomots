@@ -23,14 +23,26 @@
                     Cette page sert de point d’entrée simple pour le profil. Elle affichera plus tard les scores, la progression et les préférences du joueur.
                 </p>
 
-                <div class="mt-8 grid gap-4 sm:grid-cols-2">
+                <div class="mt-8">
+                    <x-player-avatar :avatar="$avatar" :title="$user->name" :subtitle="'Avatar actif : '.$avatar['name']" size="lg" />
+                </div>
+
+                <div class="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <div class="chronomots-soft-card rounded-[1.5rem] p-5">
                         <p class="text-sm font-semibold uppercase tracking-[0.22em] text-cyan-700">Nom du joueur</p>
-                        <p class="mt-2 text-lg font-bold text-slate-950">{{ auth()->user()->name }}</p>
+                        <p class="mt-2 text-lg font-bold text-slate-950">{{ $user->name }}</p>
                     </div>
                     <div class="chronomots-soft-card rounded-[1.5rem] p-5">
                         <p class="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-700">Email</p>
-                        <p class="mt-2 text-lg font-bold text-slate-950">{{ auth()->user()->email }}</p>
+                        <p class="mt-2 text-lg font-bold text-slate-950">{{ $user->email }}</p>
+                    </div>
+                    <div class="chronomots-soft-card rounded-[1.5rem] p-5">
+                        <p class="text-sm font-semibold uppercase tracking-[0.22em] text-violet-700">Sons</p>
+                        <p class="mt-2 text-lg font-bold text-slate-950">{{ $user->userPreference->sound_enabled ? 'Activés' : 'Coupés' }}</p>
+                    </div>
+                    <div class="chronomots-soft-card rounded-[1.5rem] p-5">
+                        <p class="text-sm font-semibold uppercase tracking-[0.22em] text-orange-700">Volume</p>
+                        <p class="mt-2 text-lg font-bold text-slate-950">{{ $user->userPreference->volume_level }}%</p>
                     </div>
                 </div>
             </section>

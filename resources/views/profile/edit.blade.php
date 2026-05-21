@@ -23,8 +23,20 @@
             </div>
 
             <div class="chronomots-panel p-4 shadow-none sm:rounded-[2rem] sm:p-8">
+                <div class="max-w-5xl">
+                    @include('profile.partials.update-avatar-form')
+                </div>
+            </div>
+
+            <div class="chronomots-panel p-4 shadow-none sm:rounded-[2rem] sm:p-8">
                 <div class="max-w-xl">
                     @include('profile.partials.update-password-form')
+                </div>
+            </div>
+
+            <div class="chronomots-panel p-4 shadow-none sm:rounded-[2rem] sm:p-8">
+                <div class="max-w-2xl">
+                    @include('profile.partials.update-audio-preferences-form')
                 </div>
             </div>
 

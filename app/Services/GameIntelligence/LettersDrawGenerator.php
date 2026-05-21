@@ -96,12 +96,47 @@ class LettersDrawGenerator
             ->values();
 
         $pool = $preferredWords->isNotEmpty() ? $preferredWords : $words;
+        $viableSeeds = $pool
+            ->filter(fn (Word $word) => $this->seedWordProvidesEnoughSolutions($word, $words, $difficultyProfile))
+            ->values();
+
+        if ($viableSeeds->isNotEmpty()) {
+            $pool = $viableSeeds;
+        }
 
         if ($pool->isEmpty()) {
             return null;
         }
 
         return $pool->random();
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Word>  $wordPool
+     */
+    private function seedWordProvidesEnoughSolutions(Word $seedWord, $wordPool, DifficultyProfile $difficultyProfile): bool
+    {
+        $availableCounts = array_count_values(str_split($seedWord->normalized_word));
+        $solutionsCount = 0;
+        $hasTargetWord = false;
+
+        foreach ($wordPool as $word) {
+            if (! $this->wordFitsCounts($word->normalized_word, $availableCounts)) {
+                continue;
+            }
+
+            $solutionsCount++;
+
+            if ($word->length >= $difficultyProfile->minBestLength) {
+                $hasTargetWord = true;
+            }
+
+            if ($solutionsCount >= $difficultyProfile->minSolutions && $hasTargetWord) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -219,5 +254,21 @@ class LettersDrawGenerator
     private function isRareLetter(string $letter): bool
     {
         return in_array($letter, ['J', 'K', 'Q', 'W', 'X', 'Y', 'Z'], true);
+    }
+
+    /**
+     * @param  array<string, int>  $availableCounts
+     */
+    private function wordFitsCounts(string $word, array $availableCounts): bool
+    {
+        $wordCounts = array_count_values(str_split($word));
+
+        foreach ($wordCounts as $letter => $count) {
+            if (($availableCounts[$letter] ?? 0) < $count) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

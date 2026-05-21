@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AgeGroup;
 use App\Models\GameSession;
 use App\Services\AchievementService;
+use App\Services\AvatarCatalogService;
 use App\Services\GameIntelligence\GameIntelligenceManager;
 use App\Services\GameIntelligence\OpponentAiService;
 use App\Services\WordValidationService;
@@ -23,6 +24,7 @@ class LetterGameController extends Controller
 
     public function __construct(
         private readonly AchievementService $achievementService,
+        private readonly AvatarCatalogService $avatarCatalogService,
         private readonly GameIntelligenceManager $gameIntelligenceManager,
         private readonly OpponentAiService $opponentAiService,
         private readonly WordValidationService $wordValidationService,
@@ -196,6 +198,8 @@ class LetterGameController extends Controller
             'opponentLevel' => $opponentLevel,
             'opponentLevelLabel' => $this->opponentAiService->labelForLevel($opponentLevel),
             'unlockedAchievements' => $unlockedAchievements,
+            'playerAvatar' => $this->avatarCatalogService->avatarForUser($request->user()),
+            'opponentAvatar' => $opponentLevel ? $this->avatarCatalogService->aiAvatar($opponentLevel) : null,
         ]);
     }
 

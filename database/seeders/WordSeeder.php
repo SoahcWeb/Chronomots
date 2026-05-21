@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Word;
-use App\Services\WordValidationService;
+use App\Services\WordNormalizerService;
 use Illuminate\Database\Seeder;
 
 class WordSeeder extends Seeder
@@ -13,18 +13,24 @@ class WordSeeder extends Seeder
      */
     public function run(): void
     {
-        $wordValidation = new WordValidationService();
+        $wordNormalizer = app(WordNormalizerService::class);
 
         collect([
             ['word' => 'ami', 'frequency' => 90, 'age_level' => '7-9'],
             ['word' => 'amis', 'frequency' => 85, 'age_level' => '7-9'],
+            ['word' => 'amer', 'frequency' => 70, 'age_level' => '7-9'],
+            ['word' => 'amers', 'frequency' => 64, 'age_level' => '7-9'],
             ['word' => 'chat', 'frequency' => 88, 'age_level' => '7-9'],
+            ['word' => 'chats', 'frequency' => 82, 'age_level' => '7-9'],
             ['word' => 'chien', 'frequency' => 82, 'age_level' => '7-9'],
             ['word' => 'loup', 'frequency' => 74, 'age_level' => '7-9'],
             ['word' => 'lune', 'frequency' => 80, 'age_level' => '7-9'],
+            ['word' => 'lunes', 'frequency' => 73, 'age_level' => '7-9'],
             ['word' => 'mare', 'frequency' => 62, 'age_level' => '7-9'],
             ['word' => 'mer', 'frequency' => 92, 'age_level' => '7-9'],
+            ['word' => 'rame', 'frequency' => 68, 'age_level' => '7-9'],
             ['word' => 'moto', 'frequency' => 79, 'age_level' => '7-9'],
+            ['word' => 'motos', 'frequency' => 72, 'age_level' => '7-9'],
             ['word' => 'mot', 'frequency' => 98, 'age_level' => '7-9'],
             ['word' => 'mots', 'frequency' => 95, 'age_level' => '7-9'],
             ['word' => 'robot', 'frequency' => 71, 'age_level' => '7-9'],
@@ -50,8 +56,8 @@ class WordSeeder extends Seeder
             ['word' => 'précision', 'frequency' => 42, 'age_level' => '14+'],
             ['word' => 'consonne', 'frequency' => 31, 'age_level' => '14+'],
             ['word' => 'voyelle', 'frequency' => 33, 'age_level' => '14+'],
-        ])->each(function (array $entry) use ($wordValidation): void {
-            $normalizedWord = $wordValidation->normalize($entry['word']);
+        ])->each(function (array $entry) use ($wordNormalizer): void {
+            $normalizedWord = $wordNormalizer->normalize($entry['word']);
 
             Word::updateOrCreate(
                 ['normalized_word' => $normalizedWord],

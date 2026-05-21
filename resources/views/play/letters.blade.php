@@ -55,7 +55,7 @@
                         class="chronomots-soft-card chronomots-timer rounded-[1.5rem] p-5 sm:w-48"
                     >
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Chrono lettres</p>
-                        <p class="mt-3 text-4xl font-black tracking-[-0.05em] text-slate-950">
+                        <p class="chronomots-timer-value mt-3 text-4xl font-black tracking-[-0.05em] text-slate-950">
                             <span x-text="minutes"></span>:<span x-text="seconds"></span>
                         </p>
                         <p x-show="!expired" class="mt-2 text-sm leading-6 text-slate-600">
@@ -80,6 +80,7 @@
                     action="{{ route('play.letters.submit', $ageGroup) }}"
                     :class="{ 'chronomots-form-disabled': expired }"
                     class="chronomots-form-shell mt-8 space-y-4 rounded-[1.75rem] p-5 sm:p-6"
+                    data-feedback-reveal
                 >
                     @csrf
                     <input type="hidden" name="draw_id" value="{{ $drawId }}">
@@ -102,7 +103,7 @@
                         >
 
                         @if (! empty($errorMessage))
-                            <p class="mt-3 text-sm font-medium text-rose-600">{{ $errorMessage }}</p>
+                            <p class="chronomots-inline-feedback mt-3 text-sm font-medium text-rose-600" data-feedback-error data-audio-autoplay="error">{{ $errorMessage }}</p>
                         @endif
                     </div>
 

@@ -163,6 +163,51 @@
                     </article>
                 @endforelse
             </section>
+
+            @auth
+                <section class="chronomots-panel rounded-[2rem] p-6 sm:p-8">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <p class="text-sm font-semibold uppercase tracking-[0.22em] text-slate-500">Défis quotidiens</p>
+                            <h2 class="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950">Même tirage pour tous aujourd’hui</h2>
+                        </div>
+
+                        <a href="{{ route('daily-challenges.index') }}" class="chronomots-button-secondary inline-flex items-center justify-center rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]">
+                            Voir les défis
+                        </a>
+                    </div>
+
+                    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+                        @foreach ($dailyChallenges as $dailyChallenge)
+                            <article class="chronomots-soft-card rounded-[1.5rem] p-5">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p class="text-lg font-black text-slate-950">
+                                            Défi {{ $dailyChallenge->game_type === 'letters' ? 'lettres' : 'chiffres' }}
+                                        </p>
+                                        <p class="mt-1 text-sm leading-6 text-slate-600">{{ $dailyChallenge->ageGroup->name }}</p>
+                                    </div>
+
+                                    <span class="chronomots-pill">{{ $dailyChallenge->challenge_date->format('d/m') }}</span>
+                                </div>
+
+                                <p class="mt-3 text-sm leading-6 text-slate-600">
+                                    {{ $dailyChallenge->game_type === 'letters' ? 'Une tentative pour faire le meilleur mot possible.' : 'Une tentative pour atteindre la cible commune du jour.' }}
+                                </p>
+
+                                <div class="mt-4 flex flex-wrap gap-2">
+                                    <span class="chronomots-pill">Tentative unique</span>
+                                    <span class="chronomots-pill">Classement quotidien</span>
+                                </div>
+
+                                <a href="{{ route('daily-challenges.show', $dailyChallenge) }}" class="chronomots-button-primary mt-5 inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em]">
+                                    Lancer le défi
+                                </a>
+                            </article>
+                        @endforeach
+                    </div>
+                </section>
+            @endauth
         </div>
     </div>
 </x-app-layout>

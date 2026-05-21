@@ -332,6 +332,117 @@ textarea:focus-visible {
     animation: chronomots-beacon 1.8s ease-in-out infinite;
 }
 
+.chronomots-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1.35rem;
+    color: #0f1b35;
+    font-weight: 900;
+    letter-spacing: -0.06em;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        0 12px 28px rgba(17, 32, 59, 0.12);
+}
+
+.chronomots-avatar--sm {
+    width: 3rem;
+    height: 3rem;
+    font-size: 0.95rem;
+}
+
+.chronomots-avatar--md {
+    width: 3.7rem;
+    height: 3.7rem;
+    font-size: 1.05rem;
+}
+
+.chronomots-avatar--lg {
+    width: 4.8rem;
+    height: 4.8rem;
+    font-size: 1.25rem;
+}
+
+.chronomots-avatar--comet {
+    background: linear-gradient(145deg, #8ae7ff, #4ec5ff 52%, #7a9cff);
+}
+
+.chronomots-avatar--tempo {
+    background: linear-gradient(145deg, #7cf2cf, #3fd4b3 55%, #b9ef8d);
+}
+
+.chronomots-avatar--prism {
+    background: linear-gradient(145deg, #c8b6ff, #9d8df1 52%, #6f7ef8);
+}
+
+.chronomots-avatar--pixel {
+    background: linear-gradient(145deg, #ffd27b, #ffb460 52%, #ff8a6d);
+}
+
+.chronomots-avatar--orbit {
+    background: linear-gradient(145deg, #d9eef9, #b2d8f8 52%, #7fb6f7);
+}
+
+.chronomots-avatar--bloom {
+    background: linear-gradient(145deg, #ffe0eb, #ffc4da 52%, #ffc68f);
+}
+
+.chronomots-avatar--echo {
+    background: linear-gradient(145deg, #d7ffe2, #a7efc7 52%, #67d4b3);
+}
+
+.chronomots-avatar--nova {
+    background: linear-gradient(145deg, #ffe7a8, #ffd071 50%, #ff9582);
+}
+
+.chronomots-avatar--ai-easy {
+    background: linear-gradient(145deg, #d8f7ff, #a3e8ff 52%, #68c5ff);
+}
+
+.chronomots-avatar--ai-medium {
+    background: linear-gradient(145deg, #dfffe8, #99efca 52%, #50c8af);
+}
+
+.chronomots-avatar--ai-hard {
+    background: linear-gradient(145deg, #f0e0ff, #bfa3ff 52%, #8b78ff);
+}
+
+.chronomots-avatar--ai-expert {
+    background: linear-gradient(145deg, #ffe2d8, #ffb78b 52%, #ff8f66);
+}
+
+.chronomots-avatar-option {
+    display: block;
+    border-radius: 1.6rem;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(255, 255, 255, 0.72);
+    padding: 1rem;
+    box-shadow: var(--chronomots-shadow-soft);
+    cursor: pointer;
+    transition:
+        transform var(--chronomots-ease),
+        border-color var(--chronomots-ease),
+        box-shadow var(--chronomots-ease);
+}
+
+.chronomots-avatar-option:hover {
+    transform: translateY(-2px);
+    border-color: rgba(95, 208, 255, 0.36);
+    box-shadow:
+        0 18px 30px rgba(17, 32, 59, 0.1),
+        0 8px 16px rgba(95, 208, 255, 0.08);
+}
+
+.chronomots-avatar-option:has(input:checked),
+.chronomots-avatar-option--active {
+    border-color: rgba(40, 199, 168, 0.42);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(236, 253, 245, 0.88));
+    box-shadow:
+        0 18px 32px rgba(17, 32, 59, 0.1),
+        0 0 0 1px rgba(40, 199, 168, 0.16);
+}
+
 .chronomots-mode-card {
     position: relative;
     overflow: hidden;
@@ -465,6 +576,70 @@ textarea:focus-visible {
     transform: translateX(130%);
 }
 
+.chronomots-js [data-feedback-reveal] {
+    transform: translateY(8px) scale(0.985);
+    opacity: 0;
+}
+
+.chronomots-js .chronomots-score-burst--spotlight {
+    transform: translateY(8px) scale(0.985);
+    opacity: 0;
+}
+
+.chronomots-inline-feedback {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    border-radius: 1rem;
+    background: rgba(254, 242, 242, 0.96);
+    border: 1px solid rgba(248, 113, 113, 0.28);
+    padding: 0.7rem 0.95rem;
+    box-shadow: 0 14px 30px rgba(239, 68, 68, 0.09);
+}
+
+.chronomots-js .chronomots-inline-feedback {
+    transform: translateX(-6px);
+    opacity: 0;
+}
+
+.chronomots-inline-feedback::before {
+    content: "";
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #fb7185, #ef4444);
+    box-shadow: 0 0 0 5px rgba(248, 113, 113, 0.12);
+}
+
+.chronomots-js .chronomots-inline-feedback--active {
+    opacity: 1;
+    transform: translateX(0);
+    animation: chronomots-error-shift 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.chronomots-js .chronomots-feedback-reveal--visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition:
+        opacity 420ms cubic-bezier(0.22, 1, 0.36, 1),
+        transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.chronomots-achievement-burst {
+    position: relative;
+    overflow: hidden;
+}
+
+.chronomots-achievement-burst::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at top right, rgba(200, 241, 105, 0.42), transparent 30%),
+        radial-gradient(circle at bottom left, rgba(40, 199, 168, 0.24), transparent 34%);
+    pointer-events: none;
+}
+
 .chronomots-action-cluster {
     display: flex;
     flex-wrap: wrap;
@@ -497,6 +672,10 @@ textarea:focus-visible {
         0 18px 38px rgba(255, 127, 102, 0.16),
         0 0 0 1px rgba(255, 127, 102, 0.12);
     animation: chronomots-urgent-pulse 1s ease-in-out infinite;
+}
+
+.chronomots-timer--urgent .chronomots-timer-value {
+    animation: chronomots-urgent-digits 0.85s ease-in-out infinite;
 }
 
 .chronomots-timer--expired {
@@ -544,6 +723,30 @@ textarea:focus-visible {
     }
 }
 
+@keyframes chronomots-urgent-digits {
+    0%,
+    100% {
+        letter-spacing: -0.05em;
+        transform: scale(1);
+    }
+    50% {
+        letter-spacing: -0.07em;
+        transform: scale(1.04);
+    }
+}
+
+@keyframes chronomots-error-shift {
+    0% {
+        transform: translateX(-10px);
+    }
+    45% {
+        transform: translateX(5px);
+    }
+    100% {
+        transform: translateX(0);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -581,5 +784,9 @@ textarea:focus-visible {
     .chronomots-button-primary:hover,
     .chronomots-button-secondary:hover {
         transform: none;
+    }
+
+    .chronomots-timer--urgent .chronomots-timer-value {
+        animation: none;
     }
 }
