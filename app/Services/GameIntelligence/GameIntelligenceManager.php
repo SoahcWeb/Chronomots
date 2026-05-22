@@ -9,15 +9,38 @@ use Illuminate\Support\Str;
 class GameIntelligenceManager
 {
     public function __construct(
+        private readonly AgeDifficultyProfileService $ageDifficultyProfileService,
         private readonly BalancedDrawService $balancedDrawService,
+        private readonly LettersDrawGenerator $lettersDrawGenerator,
         private readonly GameplaySecurityService $gameplaySecurityService,
     ) {
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function startLettersDraw(AgeGroup $ageGroup): array
+    {
+        $difficultyProfile = $this->ageDifficultyProfileService->forLetters($ageGroup);
+
+        return $this->lettersDrawGenerator->startInteractiveDraw($ageGroup, $difficultyProfile);
+    }
+
+    /**
+     * @param  array<string, mixed>  $draw
+     * @return array<string, mixed>
+     */
+    public function revealLettersChoice(AgeGroup $ageGroup, array $draw, string $choiceType): array
+    {
+        $difficultyProfile = $this->ageDifficultyProfileService->forLetters($ageGroup);
+
+        return $this->lettersDrawGenerator->revealNextLetter($draw, $choiceType, $difficultyProfile);
+    }
+
+    /**
      * Build the letters payload expected by the current controllers/session flow.
      *
-     * @return array{draw_id: string, letters: array<int, string>, started_at: string, expires_at: string, timer_seconds: int, age_group_id: int, game_type: string}
+     * @return array{draw_id: string, letters: array<int, string>, started_at: string, expires_at: string, timer_seconds: int, age_group_id: int, game_type: string, choice_history: array<int, string>, letters_target: int}
      */
     public function createLettersDraw(AgeGroup $ageGroup): array
     {
@@ -32,6 +55,8 @@ class GameIntelligenceManager
             'timer_seconds' => $window['timer_seconds'],
             'age_group_id' => $ageGroup->id,
             'game_type' => 'letters',
+            'choice_history' => $candidate->payload['choice_history'] ?? [],
+            'letters_target' => $candidate->difficultyProfile->lettersCount,
         ];
     }
 

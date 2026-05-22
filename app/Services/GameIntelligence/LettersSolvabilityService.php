@@ -28,6 +28,10 @@ class LettersSolvabilityService
         $bestWord = $matchingWords->first();
         $solutionsCount = $matchingWords->count();
         $bestLength = $bestWord?->length ?? 0;
+        $totalPossibleWordLength = (int) $matchingWords->sum('length');
+        $averageLength = $solutionsCount > 0
+            ? round($totalPossibleWordLength / $solutionsCount, 2)
+            : 0.0;
         $targetWordCount = $matchingWords
             ->filter(fn (Word $word) => $word->length >= $difficultyProfile->minBestLength)
             ->count();
@@ -43,6 +47,8 @@ class LettersSolvabilityService
             bestWord: $bestWord?->normalized_word,
             metadata: [
                 'best_length' => $bestLength,
+                'average_length' => $averageLength,
+                'total_possible_word_length' => $totalPossibleWordLength,
                 'target_word_count' => $targetWordCount,
                 'sample_words' => $matchingWords->take(5)->pluck('normalized_word')->values()->all(),
             ],
@@ -57,7 +63,7 @@ class LettersSolvabilityService
      */
     public function findCandidateWords(array $letters, AgeGroup $ageGroup): Collection
     {
-        $availableCounts = array_count_values($letters);
+        $availableCounts = array_count_values(array_map('strtoupper', $letters));
         $wordPool = $this->wordPool($ageGroup, count($letters));
 
         /** @var Collection<int, Word> $matchingWords */
@@ -86,7 +92,7 @@ class LettersSolvabilityService
      */
     private function wordFitsCounts(string $word, array $availableCounts): bool
     {
-        $wordCounts = array_count_values(str_split($word));
+        $wordCounts = array_count_values(str_split(strtoupper($word)));
 
         foreach ($wordCounts as $letter => $count) {
             if (($availableCounts[$letter] ?? 0) < $count) {

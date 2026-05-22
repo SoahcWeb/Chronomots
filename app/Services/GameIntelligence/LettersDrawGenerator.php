@@ -9,11 +9,24 @@ use Illuminate\Support\Collection;
 
 class LettersDrawGenerator
 {
+    /**
+     * @var array<string, array<int, string>>
+     */
+    private const CURATED_SAFE_SEED_WORDS = [
+        '7-9' => ['SOLEIL', 'CHIEN', 'ROBOT', 'MOTOS', 'LUNES', 'CHATS'],
+        '10-13' => ['ORANGE', 'TOMATE', 'MAISON', 'LOGIQUE', 'CALCUL', 'JARDIN', 'PIRATE', 'NOMBRE', 'VITESSE', 'QUESTION', 'TRIANGLE'],
+        '14+' => ['STRATEGIE', 'REFLEXION', 'EQUATION', 'ALGEBRE', 'VARIABLE', 'QUOTIENT', 'PRECISION', 'CONSONNE', 'VOYELLE'],
+    ];
+
     private const DEFAULT_SEED_POOL_PER_LENGTH = 80;
 
     private const DEFAULT_SEED_EVALUATION_LIMIT = 10;
 
     private const DEFAULT_SEED_SOLUTION_CHECK_LIMIT = 250;
+
+    private const DEFAULT_FALLBACK_SEED_CANDIDATE_LIMIT = 12;
+
+    private const MAX_FULL_DRAW_ATTEMPTS = 6;
 
     /**
      * @var array<string, Collection<int, Word>>
@@ -21,30 +34,177 @@ class LettersDrawGenerator
     private array $seedWordCache = [];
 
     public function __construct(
+        private readonly DrawConstraintService $drawConstraintService,
         private readonly LettersWordPoolService $lettersWordPoolService,
+        private readonly LettersSolvabilityService $lettersSolvabilityService,
+        private readonly WeightedLetterGenerator $weightedLetterGenerator,
+        private readonly LetterPoolService $letterPoolService,
     ) {
     }
 
     /**
-     * Generate a candidate letters draw that tries a bounded "smart" seed first.
-     * If nothing convincing is found quickly, fall back to a balanced raw draw.
+     * Generate a complete letters draw for automatic flows like AI analysis and daily challenges.
      *
-     * @return array{letters: array<int, string>, seed_word: string|null, vowel_count: int, rare_letters_count: int}
+     * @return array{letters: array<int, string>, seed_word: string|null, vowel_count: int, rare_letters_count: int, choice_history: array<int, string>}
      */
     public function generate(AgeGroup $ageGroup, DifficultyProfile $difficultyProfile): array
     {
-        $seedWord = $this->pickSeedWord($ageGroup, $difficultyProfile);
-        $letters = $seedWord !== null ? str_split((string) $seedWord->normalized_word) : [];
-        $letters = $this->fillRemainingLetters($letters, $difficultyProfile);
+        for ($attempt = 0; $attempt < self::MAX_FULL_DRAW_ATTEMPTS; $attempt++) {
+            $state = $this->startInteractiveDraw($ageGroup, $difficultyProfile);
 
-        shuffle($letters);
+            while (! $this->isComplete($state, $difficultyProfile)) {
+                $choice = $this->pickAutomaticChoiceType($state, $difficultyProfile);
+                $state = $this->revealNextLetter($state, $choice, $difficultyProfile);
+            }
+
+            $state = $this->repairCompletedState($state, $difficultyProfile);
+
+            if ($this->drawConstraintService->isCompletedDrawValid($state['letters'], $difficultyProfile)) {
+                return $this->finalizeState($state, $difficultyProfile);
+            }
+        }
+
+        return $this->generateSafeFallbackDraw($difficultyProfile);
+    }
+
+    /**
+     * Build a solvability-first fallback by preserving a frequent age-appropriate seed word.
+     *
+     * @return array{letters: array<int, string>, seed_word: string|null, vowel_count: int, rare_letters_count: int, choice_history: array<int, string>}|null
+     */
+    public function generateSeededFallback(AgeGroup $ageGroup, DifficultyProfile $difficultyProfile): ?array
+    {
+        $seedWords = $this->seedWordCandidates($ageGroup, $difficultyProfile)
+            ->pluck('normalized_word')
+            ->map(fn (string $word) => strtoupper($word))
+            ->values()
+            ->all();
+
+        return $this->generateFallbackFromSeedWords($seedWords, $ageGroup, $difficultyProfile);
+    }
+
+    /**
+     * Build a fallback from an internal curated safe-word list by age.
+     *
+     * @return array{letters: array<int, string>, seed_word: string|null, vowel_count: int, rare_letters_count: int, choice_history: array<int, string>}|null
+     */
+    public function generateCuratedFallback(AgeGroup $ageGroup, DifficultyProfile $difficultyProfile): ?array
+    {
+        $seedWords = collect($this->curatedSafeSeedWords($ageGroup))
+            ->filter(fn (string $word) => strlen($word) >= $difficultyProfile->minBestLength)
+            ->filter(fn (string $word) => strlen($word) <= $difficultyProfile->lettersCount)
+            ->values()
+            ->all();
+
+        return $this->generateFallbackFromSeedWords($seedWords, $ageGroup, $difficultyProfile);
+    }
+
+    /**
+     * Expose the deterministic constraint-safe fallback for last-resort recovery.
+     *
+     * @return array{letters: array<int, string>, seed_word: string|null, vowel_count: int, rare_letters_count: int, choice_history: array<int, string>}
+     */
+    public function generateSafeFallback(DifficultyProfile $difficultyProfile): array
+    {
+        return $this->generateSafeFallbackDraw($difficultyProfile);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function startInteractiveDraw(AgeGroup $ageGroup, DifficultyProfile $difficultyProfile): array
+    {
+        $seedWord = $this->pickSeedWord($ageGroup, $difficultyProfile);
+        $state = [
+            'letters' => [],
+            'choice_history' => [],
+            'seed_word' => $seedWord ? strtoupper((string) $seedWord->normalized_word) : null,
+            'seed_letters_remaining' => $seedWord ? str_split(strtoupper((string) $seedWord->normalized_word)) : [],
+            'letters_target' => $difficultyProfile->lettersCount,
+            'latest_letter' => null,
+            'requested_choice_type' => null,
+            'applied_choice_type' => null,
+            'was_choice_overridden' => false,
+        ];
 
         return [
-            'letters' => $letters,
-            'seed_word' => $seedWord?->normalized_word,
-            'vowel_count' => $this->countVowels($letters),
-            'rare_letters_count' => count(array_filter($letters, fn (string $letter) => $this->isRareLetter($letter))),
+            ...$state,
+            ...$this->drawConstraintService->summarize($state['letters'], $difficultyProfile),
+            'is_complete' => false,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $state
+     * @return array<string, mixed>
+     */
+    public function revealNextLetter(array $state, string $choiceType, DifficultyProfile $difficultyProfile): array
+    {
+        $letters = array_values($state['letters'] ?? []);
+        $requestedChoiceType = $choiceType;
+        $allowedChoiceTypes = $this->drawConstraintService->allowedChoiceTypes($letters, $difficultyProfile);
+
+        if ($allowedChoiceTypes === []) {
+            $allowedChoiceTypes = $this->drawConstraintService->remainingSlots($letters, $difficultyProfile) > 0
+                ? [$this->fallbackChoiceType($letters, $difficultyProfile)]
+                : [];
+        }
+
+        if ($allowedChoiceTypes === []) {
+            return [
+                ...$state,
+                'allowed_choices' => [],
+                'requested_choice_type' => $requestedChoiceType,
+                'applied_choice_type' => null,
+                'was_choice_overridden' => false,
+                'is_complete' => $this->isComplete(['letters' => $letters], $difficultyProfile),
+            ];
+        }
+
+        if (! in_array($choiceType, $allowedChoiceTypes, true)) {
+            $choiceType = $allowedChoiceTypes[0] ?? 'vowel';
+        }
+
+        $preferredLetters = $this->preferredLettersForType($choiceType, $state['seed_letters_remaining'] ?? []);
+        $letter = $this->weightedLetterGenerator->pick($choiceType, $letters, $difficultyProfile, $preferredLetters);
+        $appliedChoiceType = $this->letterPoolService->isVowel($letter) ? 'vowel' : 'consonant';
+        $letters[] = $letter;
+
+        $updatedSeedLetters = $this->removeLetterFromSeed($letter, $state['seed_letters_remaining'] ?? []);
+        $choiceHistory = array_values($state['choice_history'] ?? []);
+        $choiceHistory[] = $appliedChoiceType;
+
+        $updatedState = [
+            ...$state,
+            'letters' => $letters,
+            'choice_history' => $choiceHistory,
+            'seed_letters_remaining' => $updatedSeedLetters,
+            'latest_letter' => $letter,
+            'requested_choice_type' => $requestedChoiceType,
+            'applied_choice_type' => $appliedChoiceType,
+            'was_choice_overridden' => $requestedChoiceType !== $appliedChoiceType,
+        ];
+
+        if (count($letters) >= $difficultyProfile->lettersCount) {
+            $updatedState = $this->repairCompletedState($updatedState, $difficultyProfile);
+            $letters = array_values($updatedState['letters'] ?? []);
+        }
+
+        $summary = $this->drawConstraintService->summarize($letters, $difficultyProfile);
+
+        return [
+            ...$updatedState,
+            ...$summary,
+            'is_complete' => $this->isComplete(['letters' => $letters], $difficultyProfile),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $state
+     */
+    public function isComplete(array $state, DifficultyProfile $difficultyProfile): bool
+    {
+        return count($state['letters'] ?? []) >= ($state['letters_target'] ?? $difficultyProfile->lettersCount);
     }
 
     private function pickSeedWord(AgeGroup $ageGroup, DifficultyProfile $difficultyProfile): ?Word
@@ -78,7 +238,11 @@ class LettersDrawGenerator
         for ($attempt = 0; $attempt < $maxEvaluations; $attempt++) {
             $candidate = $seedCandidates->get($attempt);
 
-            if ($candidate instanceof Word && $this->seedWordProvidesEnoughSolutions($candidate, $seedPool, $difficultyProfile)) {
+            if (
+                $candidate instanceof Word
+                && $this->seedWordProvidesEnoughSolutions($candidate, $seedPool, $difficultyProfile)
+                && $this->seedWordSupportsConstraints($candidate, $difficultyProfile)
+            ) {
                 return $candidate;
             }
         }
@@ -91,7 +255,7 @@ class LettersDrawGenerator
      */
     private function seedWordProvidesEnoughSolutions(Word $seedWord, Collection $wordPool, DifficultyProfile $difficultyProfile): bool
     {
-        $availableCounts = array_count_values(str_split((string) $seedWord->normalized_word));
+        $availableCounts = array_count_values(str_split(strtoupper((string) $seedWord->normalized_word)));
         $solutionsCount = 0;
         $hasTargetWord = false;
         $inspectedWords = 0;
@@ -130,162 +294,122 @@ class LettersDrawGenerator
     }
 
     /**
-     * @param  array<int, string>  $letters
-     * @return array<int, string>
+     * @return Collection<int, Word>
      */
-    private function fillRemainingLetters(array $letters, DifficultyProfile $difficultyProfile): array
+    private function seedWordCandidates(AgeGroup $ageGroup, DifficultyProfile $difficultyProfile): Collection
     {
-        $remainingSlots = max(0, $difficultyProfile->lettersCount - count($letters));
-        $minVowels = (int) ($difficultyProfile->metadata['min_vowels'] ?? $difficultyProfile->vowelsCount);
-        $maxVowels = (int) ($difficultyProfile->metadata['max_vowels'] ?? $difficultyProfile->vowelsCount);
-        $targetVowels = min($maxVowels, max($minVowels, $difficultyProfile->vowelsCount));
-        $currentVowels = $this->countVowels($letters);
+        $seedMinLength = min(
+            $difficultyProfile->lettersCount,
+            max(2, (int) ($difficultyProfile->metadata['seed_min_length'] ?? $difficultyProfile->minBestLength)),
+        );
+        $cacheKey = $ageGroup->id.'-'.$difficultyProfile->lettersCount.'-'.$seedMinLength;
 
-        for ($index = 0; $index < $remainingSlots; $index++) {
-            $remainingLetters = $remainingSlots - $index;
-            $vowelsStillNeeded = max(0, $targetVowels - $currentVowels);
-            $canStillUseVowel = $currentVowels < $maxVowels;
-
-            if ($vowelsStillNeeded >= $remainingLetters && $canStillUseVowel) {
-                $letters[] = $this->pickWeightedLetter($this->vowelPool(), $letters, $difficultyProfile);
-                $currentVowels++;
-
-                continue;
-            }
-
-            $chooseVowel = $canStillUseVowel && (
-                ($vowelsStillNeeded > 0 && random_int(0, 100) < 55)
-                || ($currentVowels < $minVowels && random_int(0, 100) < 70)
-            );
-            $letters[] = $this->pickWeightedLetter(
-                $chooseVowel ? $this->vowelPool() : $this->consonantPool(),
-                $letters,
-                $difficultyProfile,
-            );
-
-            if ($this->isVowel($letters[array_key_last($letters)])) {
-                $currentVowels++;
-            }
+        if (! isset($this->seedWordCache[$cacheKey])) {
+            $perLengthLimit = (int) ($difficultyProfile->metadata['seed_pool_per_length'] ?? self::DEFAULT_SEED_POOL_PER_LENGTH);
+            $this->seedWordCache[$cacheKey] = $this->lettersWordPoolService
+                ->frequentWords($ageGroup, $difficultyProfile->lettersCount, $perLengthLimit)
+                ->filter(fn (Word $word) => $word->length >= $seedMinLength)
+                ->values();
         }
 
-        return $letters;
+        $limit = max(1, (int) ($difficultyProfile->metadata['fallback_seed_candidate_limit'] ?? self::DEFAULT_FALLBACK_SEED_CANDIDATE_LIMIT));
+
+        return $this->seedWordCache[$cacheKey]
+            ->filter(fn (Word $word) => $this->seedWordProvidesEnoughSolutions($word, $this->seedWordCache[$cacheKey], $difficultyProfile))
+            ->filter(fn (Word $word) => $this->seedWordSupportsConstraints($word, $difficultyProfile))
+            ->take($limit)
+            ->values();
     }
 
     /**
-     * @param  array<int, string>  $letters
+     * @param  array<string, mixed>  $state
      */
-    private function countVowels(array $letters): int
+    private function pickAutomaticChoiceType(array $state, DifficultyProfile $difficultyProfile): string
     {
-        return count(array_filter($letters, fn (string $letter) => $this->isVowel($letter)));
-    }
+        $letters = array_values($state['letters'] ?? []);
+        $allowedChoiceTypes = $this->drawConstraintService->allowedChoiceTypes($letters, $difficultyProfile);
 
-    private function isVowel(string $letter): bool
-    {
-        return in_array($letter, ['A', 'E', 'I', 'O', 'U', 'Y'], true);
+        if ($allowedChoiceTypes === []) {
+            return $this->fallbackChoiceType($letters, $difficultyProfile);
+        }
+
+        if (count($allowedChoiceTypes) === 1) {
+            return $allowedChoiceTypes[0];
+        }
+
+        $targetVowels = max($this->drawConstraintService->minVowels($difficultyProfile), min($this->drawConstraintService->maxVowels($difficultyProfile), $difficultyProfile->vowelsCount));
+        $currentVowels = $this->drawConstraintService->countVowels($letters);
+        $remainingSlots = $this->drawConstraintService->remainingSlots($letters, $difficultyProfile);
+        $seedLetters = $state['seed_letters_remaining'] ?? [];
+        $seedVowels = count(array_filter($seedLetters, fn (string $letter) => $this->letterPoolService->isVowel($letter)));
+        $seedConsonants = count($seedLetters) - $seedVowels;
+
+        if ($currentVowels < $targetVowels && $remainingSlots <= max(1, $targetVowels - $currentVowels + 1)) {
+            return 'vowel';
+        }
+
+        if ($seedVowels > $seedConsonants && in_array('vowel', $allowedChoiceTypes, true) && $currentVowels < $targetVowels) {
+            return 'vowel';
+        }
+
+        if ($seedConsonants > $seedVowels && in_array('consonant', $allowedChoiceTypes, true)) {
+            return 'consonant';
+        }
+
+        $vowelBias = max(35, min(65, (int) round(($targetVowels / max(1, $difficultyProfile->lettersCount)) * 100)));
+
+        return in_array('vowel', $allowedChoiceTypes, true) && random_int(1, 100) <= $vowelBias
+            ? 'vowel'
+            : ($allowedChoiceTypes[0] ?? 'consonant');
     }
 
     /**
-     * @return array<int, string>
+     * @param  array<string, mixed>  $state
+     * @return array{letters: array<int, string>, seed_word: string|null, vowel_count: int, rare_letters_count: int, choice_history: array<int, string>}
      */
-    private function vowelPool(): array
+    private function finalizeState(array $state, DifficultyProfile $difficultyProfile): array
     {
+        $letters = array_values($state['letters'] ?? []);
+        $summary = $this->drawConstraintService->summarize($letters, $difficultyProfile);
+
         return [
-            'E', 'E', 'E', 'E', 'E', 'E',
-            'A', 'A', 'A', 'A',
-            'I', 'I', 'I',
-            'O', 'O', 'O',
-            'U', 'U',
-            'Y',
+            'letters' => $letters,
+            'seed_word' => $state['seed_word'] ?? null,
+            'vowel_count' => $summary['vowel_count'],
+            'rare_letters_count' => $summary['rare_letters_count'],
+            'choice_history' => array_values($state['choice_history'] ?? []),
         ];
     }
 
     /**
+     * @param  array<int, string>  $seedLetters
      * @return array<int, string>
      */
-    private function consonantPool(): array
+    private function preferredLettersForType(string $type, array $seedLetters): array
     {
-        return [
-            'S', 'S', 'S', 'S',
-            'T', 'T', 'T',
-            'N', 'N', 'N',
-            'R', 'R', 'R',
-            'L', 'L', 'L',
-            'M', 'M',
-            'D', 'D',
-            'C', 'C',
-            'P', 'P',
-            'B', 'B',
-            'F', 'F',
-            'G', 'G',
-            'H',
-            'V',
-            'J',
-            'Q',
-            'K',
-            'W',
-            'X',
-            'Z',
-        ];
-    }
-
-    /**
-     * @param  array<int, string>  $pool
-     * @param  array<int, string>  $existingLetters
-     */
-    private function pickWeightedLetter(array $pool, array $existingLetters, DifficultyProfile $difficultyProfile): string
-    {
-        $filteredPool = array_values(array_filter(
-            $pool,
-            fn (string $letter) => $this->canUseLetter($letter, $existingLetters, $difficultyProfile),
+        return array_values(array_filter(
+            $seedLetters,
+            fn (string $letter) => $type === 'vowel'
+                ? $this->letterPoolService->isVowel($letter)
+                : ! $this->letterPoolService->isVowel($letter),
         ));
-
-        if ($filteredPool === []) {
-            $filteredPool = $pool;
-        }
-
-        return $filteredPool[random_int(0, count($filteredPool) - 1)];
     }
 
     /**
-     * Avoid over-repeating letters and stacking too many awkward consonants.
-     *
-     * @param  array<int, string>  $existingLetters
+     * @param  array<int, string>  $seedLetters
+     * @return array<int, string>
      */
-    private function canUseLetter(string $letter, array $existingLetters, DifficultyProfile $difficultyProfile): bool
+    private function removeLetterFromSeed(string $letter, array $seedLetters): array
     {
-        $counts = array_count_values($existingLetters);
-        $rareLettersCount = count(array_filter($existingLetters, fn (string $existingLetter) => $this->isRareLetter($existingLetter)));
-        $maxRareLetters = (int) ($difficultyProfile->metadata['max_rare_letters'] ?? 1);
-        $maxDuplicateCount = $this->maxDuplicateCount($letter);
+        $index = array_search($letter, $seedLetters, true);
 
-        if (($counts[$letter] ?? 0) >= $maxDuplicateCount) {
-            return false;
+        if ($index === false) {
+            return $seedLetters;
         }
 
-        if ($this->isRareLetter($letter) && $rareLettersCount >= $maxRareLetters) {
-            return false;
-        }
+        unset($seedLetters[$index]);
 
-        if ($letter === 'Q' && ! in_array('U', $existingLetters, true) && ($counts['Q'] ?? 0) >= 0) {
-            return $rareLettersCount < $maxRareLetters;
-        }
-
-        return true;
-    }
-
-    private function maxDuplicateCount(string $letter): int
-    {
-        return match ($letter) {
-            'E' => 4,
-            'A', 'S', 'T', 'N', 'R', 'I', 'O', 'L' => 3,
-            'U', 'M', 'D', 'C', 'P' => 2,
-            default => 1,
-        };
-    }
-
-    private function isRareLetter(string $letter): bool
-    {
-        return in_array($letter, ['J', 'K', 'Q', 'W', 'X', 'Y', 'Z'], true);
+        return array_values($seedLetters);
     }
 
     /**
@@ -293,7 +417,7 @@ class LettersDrawGenerator
      */
     private function wordFitsCounts(string $word, array $availableCounts): bool
     {
-        $wordCounts = array_count_values(str_split($word));
+        $wordCounts = array_count_values(str_split(strtoupper($word)));
 
         foreach ($wordCounts as $letter => $count) {
             if (($availableCounts[$letter] ?? 0) < $count) {
@@ -302,5 +426,213 @@ class LettersDrawGenerator
         }
 
         return true;
+    }
+
+    /**
+     * Build a deterministic safe draw if the smarter generation path exhausts its bounded retries.
+     *
+     * @return array{letters: array<int, string>, seed_word: string|null, vowel_count: int, rare_letters_count: int, choice_history: array<int, string>}
+     */
+    private function generateSafeFallbackDraw(DifficultyProfile $difficultyProfile): array
+    {
+        $state = [
+            'letters' => [],
+            'choice_history' => [],
+            'seed_word' => null,
+            'seed_letters_remaining' => [],
+            'letters_target' => $difficultyProfile->lettersCount,
+            'latest_letter' => null,
+            'requested_choice_type' => null,
+            'applied_choice_type' => null,
+            'was_choice_overridden' => false,
+        ];
+
+        while (count($state['letters']) < $difficultyProfile->lettersCount) {
+            $allowedChoiceTypes = $this->drawConstraintService->allowedChoiceTypes($state['letters'], $difficultyProfile);
+
+            if ($allowedChoiceTypes === []) {
+                $allowedChoiceTypes = [$this->fallbackChoiceType($state['letters'], $difficultyProfile)];
+            }
+
+            $choiceType = $allowedChoiceTypes[0];
+            $state = $this->revealNextLetter($state, $choiceType, $difficultyProfile);
+        }
+
+        $state = $this->repairCompletedState($state, $difficultyProfile);
+
+        if (! $this->drawConstraintService->isCompletedDrawValid($state['letters'], $difficultyProfile)) {
+            return $this->buildDeterministicConstraintFallback($difficultyProfile);
+        }
+
+        return $this->finalizeState($state, $difficultyProfile);
+    }
+
+    /**
+     * Choose a recoverable fallback type when secondary constraints conflict.
+     *
+     * @param  array<int, string>  $letters
+     */
+    private function fallbackChoiceType(array $letters, DifficultyProfile $difficultyProfile): string
+    {
+        $remainingSlots = $this->drawConstraintService->remainingSlots($letters, $difficultyProfile);
+        $vowelCount = $this->drawConstraintService->countVowels($letters);
+        $minVowels = $this->drawConstraintService->minVowels($difficultyProfile);
+        $maxVowels = $this->drawConstraintService->maxVowels($difficultyProfile);
+        $vowelsStillNeeded = max(0, $minVowels - $vowelCount);
+
+        if ($vowelsStillNeeded >= $remainingSlots) {
+            return 'vowel';
+        }
+
+        if ($vowelCount >= $maxVowels) {
+            return 'consonant';
+        }
+
+        return $vowelsStillNeeded > 0 ? 'vowel' : 'consonant';
+    }
+
+    private function seedWordSupportsConstraints(Word $seedWord, DifficultyProfile $difficultyProfile): bool
+    {
+        return $this->drawConstraintService->canPartialDrawReachValidCompletion(
+            str_split(strtoupper((string) $seedWord->normalized_word)),
+            $difficultyProfile,
+        );
+    }
+
+    /**
+     * @param  array<int, string>  $seedWords
+     * @return array{letters: array<int, string>, seed_word: string|null, vowel_count: int, rare_letters_count: int, choice_history: array<int, string>}|null
+     */
+    private function generateFallbackFromSeedWords(array $seedWords, AgeGroup $ageGroup, DifficultyProfile $difficultyProfile): ?array
+    {
+        foreach ($seedWords as $seedWord) {
+            $normalizedSeedWord = strtoupper($seedWord);
+            $seedLetters = str_split($normalizedSeedWord);
+
+            if (strlen($normalizedSeedWord) < $difficultyProfile->minBestLength || strlen($normalizedSeedWord) > $difficultyProfile->lettersCount) {
+                continue;
+            }
+
+            if (! $this->drawConstraintService->canPartialDrawReachValidCompletion($seedLetters, $difficultyProfile)) {
+                continue;
+            }
+
+            $orderedSeedLetters = $this->drawConstraintService->arrangeLetters($seedLetters, $difficultyProfile) ?? $seedLetters;
+            $state = [
+                'letters' => $orderedSeedLetters,
+                'choice_history' => array_map(
+                    fn (string $letter) => $this->letterPoolService->isVowel($letter) ? 'vowel' : 'consonant',
+                    $orderedSeedLetters,
+                ),
+                'seed_word' => $normalizedSeedWord,
+                'seed_letters_remaining' => [],
+                'letters_target' => $difficultyProfile->lettersCount,
+                'latest_letter' => $orderedSeedLetters !== [] ? $orderedSeedLetters[array_key_last($orderedSeedLetters)] : null,
+                'requested_choice_type' => null,
+                'applied_choice_type' => null,
+                'was_choice_overridden' => false,
+            ];
+
+            while (! $this->isComplete($state, $difficultyProfile)) {
+                $choice = $this->pickAutomaticChoiceType($state, $difficultyProfile);
+                $state = $this->revealNextLetter($state, $choice, $difficultyProfile);
+            }
+
+            $state = $this->repairCompletedState($state, $difficultyProfile);
+
+            if (! $this->drawConstraintService->isCompletedDrawValid($state['letters'], $difficultyProfile)) {
+                continue;
+            }
+
+            $payload = $this->finalizeState($state, $difficultyProfile);
+            $report = $this->lettersSolvabilityService->analyze($payload['letters'], $ageGroup, $difficultyProfile);
+
+            if ($report->valid) {
+                return $payload;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function curatedSafeSeedWords(AgeGroup $ageGroup): array
+    {
+        return match (true) {
+            $ageGroup->min_age >= 14 => self::CURATED_SAFE_SEED_WORDS['14+'],
+            $ageGroup->min_age >= 10 => self::CURATED_SAFE_SEED_WORDS['10-13'],
+            default => self::CURATED_SAFE_SEED_WORDS['7-9'],
+        };
+    }
+
+    /**
+     * Return a constraint-valid fallback without throwing, even if the weighted path stalls.
+     *
+     * @return array{letters: array<int, string>, seed_word: string|null, vowel_count: int, rare_letters_count: int, choice_history: array<int, string>}
+     */
+    private function buildDeterministicConstraintFallback(DifficultyProfile $difficultyProfile): array
+    {
+        $letters = [];
+        $choiceHistory = [];
+
+        while (count($letters) < $difficultyProfile->lettersCount) {
+            $allowedChoiceTypes = $this->drawConstraintService->allowedChoiceTypes($letters, $difficultyProfile);
+            $choiceType = $allowedChoiceTypes[0] ?? $this->fallbackChoiceType($letters, $difficultyProfile);
+            $candidates = $this->drawConstraintService->candidateLettersForType($choiceType, $letters, $difficultyProfile, 3);
+
+            if ($candidates === []) {
+                $alternateType = $choiceType === 'vowel' ? 'consonant' : 'vowel';
+                $alternateCandidates = $this->drawConstraintService->candidateLettersForType($alternateType, $letters, $difficultyProfile, 3);
+
+                if ($alternateCandidates !== []) {
+                    $choiceType = $alternateType;
+                    $candidates = $alternateCandidates;
+                }
+            }
+
+            $letter = $candidates[0] ?? array_key_first($this->letterPoolService->weightsForType($choiceType)) ?? 'E';
+            $letters[] = $letter;
+            $choiceHistory[] = $this->letterPoolService->isVowel($letter) ? 'vowel' : 'consonant';
+        }
+
+        $state = $this->repairCompletedState([
+            'letters' => $letters,
+            'choice_history' => $choiceHistory,
+            'seed_word' => null,
+            'seed_letters_remaining' => [],
+            'letters_target' => $difficultyProfile->lettersCount,
+            'latest_letter' => $letters !== [] ? $letters[array_key_last($letters)] : null,
+            'requested_choice_type' => null,
+            'applied_choice_type' => null,
+            'was_choice_overridden' => false,
+        ], $difficultyProfile);
+
+        return $this->finalizeState($state, $difficultyProfile);
+    }
+
+    /**
+     * @param  array<string, mixed>  $state
+     * @return array<string, mixed>
+     */
+    private function repairCompletedState(array $state, DifficultyProfile $difficultyProfile): array
+    {
+        $letters = array_values($state['letters'] ?? []);
+
+        if (count($letters) !== $difficultyProfile->lettersCount) {
+            return $state;
+        }
+
+        $repairedLetters = $this->drawConstraintService->repairCompletedDraw($letters, $difficultyProfile);
+
+        if ($repairedLetters === null) {
+            return $state;
+        }
+
+        return [
+            ...$state,
+            'letters' => $repairedLetters,
+        ];
     }
 }

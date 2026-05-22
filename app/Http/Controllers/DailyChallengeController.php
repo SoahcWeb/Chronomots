@@ -9,6 +9,7 @@ use App\Services\GameplaySecurityService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
 
 class DailyChallengeController extends Controller
@@ -62,7 +63,7 @@ class DailyChallengeController extends Controller
         );
     }
 
-    public function submit(Request $request, DailyChallenge $dailyChallenge): View|RedirectResponse
+    public function submit(Request $request, DailyChallenge $dailyChallenge): View|Response|RedirectResponse
     {
         if (! $dailyChallenge->challenge_date->isToday()) {
             return redirect()->route('daily-challenges.index');

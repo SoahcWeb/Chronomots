@@ -520,6 +520,16 @@ textarea:focus-visible {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(234, 248, 255, 0.94));
 }
 
+.chronomots-token--placeholder {
+    border-style: dashed;
+    border-color: rgba(191, 219, 254, 0.7);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(241, 245, 249, 0.86));
+}
+
+.chronomots-token--revealed {
+    animation: chronomots-reveal-pop 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .chronomots-token--numbers {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(239, 252, 247, 0.94));
 }
@@ -744,6 +754,21 @@ textarea:focus-visible {
     }
     100% {
         transform: translateX(0);
+    }
+}
+
+@keyframes chronomots-reveal-pop {
+    0% {
+        transform: scale(0.86) translateY(8px);
+        box-shadow: 0 0 0 rgba(95, 208, 255, 0);
+    }
+    60% {
+        transform: scale(1.04) translateY(-2px);
+        box-shadow: 0 18px 34px rgba(95, 208, 255, 0.18);
+    }
+    100% {
+        transform: scale(1) translateY(0);
+        box-shadow: 0 12px 24px rgba(17, 32, 59, 0.08);
     }
 }
 

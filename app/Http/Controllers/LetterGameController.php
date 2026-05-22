@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class LetterGameController extends Controller
@@ -38,12 +39,137 @@ class LetterGameController extends Controller
     public function show(Request $request, AgeGroup $ageGroup): View
     {
         $opponentLevel = $this->opponentAiService->normalizeLevel($request->query('opponent_level'));
-        $draw = $this->gameIntelligenceManager->createLettersDraw($ageGroup);
-        $draw['opponent_level'] = $opponentLevel;
+        $draw = $this->freshInteractiveDraw($ageGroup, $opponentLevel);
 
         $request->session()->put(self::SESSION_KEY.'.'.$draw['draw_id'], $draw);
 
         return view('play.letters', $this->gameViewData($ageGroup, $draw, '', null, $opponentLevel));
+    }
+
+    /**
+     * Reveal the next letter after a vowel/consonant choice.
+     */
+    public function draw(Request $request, AgeGroup $ageGroup): View|Response|RedirectResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'draw_id' => ['required', 'string'],
+            'letter_type' => ['required', Rule::in(['vowel', 'consonant'])],
+            'opponent_level' => ['nullable', Rule::in(array_keys($this->opponentAiService->levels()))],
+        ], [
+            'letter_type.required' => 'Choisis voyelle ou consonne pour révéler la prochaine lettre.',
+        ]);
+
+        $opponentLevel = $this->opponentAiService->normalizeLevel($request->string('opponent_level')->toString());
+        $drawId = $request->string('draw_id')->toString();
+
+        if ($validator->fails()) {
+            $draw = $this->findExistingDraw($request, $drawId) ?? $this->freshInteractiveDraw($ageGroup, $opponentLevel);
+
+            return response()->view(
+                'play.letters',
+                $this->gameViewData(
+                    $ageGroup,
+                    $draw,
+                    '',
+                    $validator->errors()->first('letter_type'),
+                    $opponentLevel,
+                ),
+                422,
+            );
+        }
+
+        $draw = $this->findExistingDraw($request, $drawId);
+
+        if (! $draw) {
+            $this->gameplaySecurityService->logInvalidAttempt('letters', $request, 'missing_draw_for_reveal', [
+                'draw_id' => $drawId,
+            ]);
+
+            return redirect()
+                ->route('play.letters.show', ['ageGroup' => $ageGroup, 'opponent_level' => $opponentLevel])
+                ->withErrors([
+                    'submitted_word' => 'Ce tirage interactif n’est plus disponible. Relance une nouvelle partie.',
+                ]);
+        }
+
+        $draw['opponent_level'] = $opponentLevel ?? ($draw['opponent_level'] ?? null);
+
+        if (! $this->gameplaySecurityService->stateMatches($draw, 'letters', $ageGroup->id)) {
+            $this->gameplaySecurityService->logInvalidAttempt('letters', $request, 'interactive_draw_context_mismatch', [
+                'draw_id' => $draw['draw_id'] ?? null,
+            ]);
+            $request->session()->forget(self::SESSION_KEY.'.'.$drawId);
+
+            return redirect()
+                ->route('play.letters.show', ['ageGroup' => $ageGroup, 'opponent_level' => $opponentLevel])
+                ->withErrors([
+                    'submitted_word' => 'Ce tirage n’est plus valide. Relance une nouvelle partie.',
+                ]);
+        }
+
+        if ($this->gameplaySecurityService->isExpired($draw, $ageGroup->letters_timer_seconds)) {
+            $request->session()->forget(self::SESSION_KEY.'.'.$drawId);
+
+            return response()->view(
+                'play.letters',
+                $this->gameViewData(
+                    $ageGroup,
+                    $draw,
+                    '',
+                    $this->gameplaySecurityService->expirationMessage('ce tirage lettres'),
+                    $draw['opponent_level'],
+                ),
+                422,
+            );
+        }
+
+        if ($this->drawIsComplete($draw, $ageGroup)) {
+            return response()->view(
+                'play.letters',
+                $this->gameViewData(
+                    $ageGroup,
+                    $draw,
+                    '',
+                    'Le tirage est complet. Tu peux maintenant proposer ton mot.',
+                    $draw['opponent_level'],
+                ),
+                422,
+            );
+        }
+
+        $letterType = $request->string('letter_type')->toString();
+        $allowedChoices = $draw['allowed_choices'] ?? ['vowel', 'consonant'];
+
+        if (! in_array($letterType, $allowedChoices, true)) {
+            $this->gameplaySecurityService->logInvalidAttempt('letters', $request, 'interactive_choice_not_allowed', [
+                'draw_id' => $drawId,
+                'letter_type' => $letterType,
+                'allowed_choices' => $allowedChoices,
+            ]);
+
+            return response()->view(
+                'play.letters',
+                $this->gameViewData(
+                    $ageGroup,
+                    $draw,
+                    '',
+                    'Ce choix n’est plus disponible pour garder un tirage jouable. Choisis l’autre type de lettre.',
+                    $draw['opponent_level'],
+                ),
+                422,
+            );
+        }
+
+        $updatedDraw = $this->gameIntelligenceManager->revealLettersChoice($ageGroup, $draw, $letterType);
+        $updatedDraw = [
+            ...$draw,
+            ...$updatedDraw,
+            'opponent_level' => $draw['opponent_level'],
+        ];
+
+        $request->session()->put(self::SESSION_KEY.'.'.$drawId, $updatedDraw);
+
+        return view('play.letters', $this->gameViewData($ageGroup, $updatedDraw, '', null, $updatedDraw['opponent_level']));
     }
 
     /**
@@ -64,8 +190,7 @@ class LetterGameController extends Controller
 
         if ($validator->fails()) {
             $draw = $this->findExistingDraw($request, $request->string('draw_id')->toString())
-                ?? $this->gameIntelligenceManager->createLettersDraw($ageGroup);
-            $draw['opponent_level'] = $opponentLevel;
+                ?? $this->freshInteractiveDraw($ageGroup, $opponentLevel);
 
             $this->gameplaySecurityService->logInvalidAttempt('letters', $request, 'validation_failed', [
                 'draw_id' => $draw['draw_id'],
@@ -131,6 +256,26 @@ class LetterGameController extends Controller
                     $draw,
                     $request->string('submitted_word')->toString(),
                     $this->gameplaySecurityService->expirationMessage('ce tirage lettres'),
+                    $draw['opponent_level'],
+                ),
+                422,
+            );
+        }
+
+        if (! $this->drawIsComplete($draw, $ageGroup)) {
+            $this->gameplaySecurityService->logInvalidAttempt('letters', $request, 'submit_before_draw_complete', [
+                'draw_id' => $draw['draw_id'],
+                'revealed_letters' => count($draw['letters'] ?? []),
+                'letters_target' => $draw['letters_target'] ?? $ageGroup->letters_timer_seconds,
+            ]);
+
+            return response()->view(
+                'play.letters',
+                $this->gameViewData(
+                    $ageGroup,
+                    $draw,
+                    '',
+                    'Le tirage n’est pas encore complet. Révèle toutes les lettres avant de proposer un mot.',
                     $draw['opponent_level'],
                 ),
                 422,
@@ -283,13 +428,19 @@ class LetterGameController extends Controller
             'ageGroup' => $ageGroup,
             'drawId' => $draw['draw_id'],
             'letters' => $draw['letters'],
-            'lettersCount' => count($draw['letters']),
+            'lettersCount' => (int) ($draw['letters_target'] ?? count($draw['letters'])),
+            'revealedLettersCount' => count($draw['letters']),
+            'remainingLettersCount' => max(0, ((int) ($draw['letters_target'] ?? count($draw['letters']))) - count($draw['letters'])),
             'timerSeconds' => $ageGroup->letters_timer_seconds,
             'initialRemainingSeconds' => $this->gameplaySecurityService->remainingSeconds($draw, $ageGroup->letters_timer_seconds),
             'startedAtIso' => $this->gameplaySecurityService->startedAt($draw)?->toIso8601String(),
             'expiresAtIso' => $this->gameplaySecurityService->expiresAt($draw, $ageGroup->letters_timer_seconds)?->toIso8601String(),
             'submittedWord' => $submittedWord,
             'errorMessage' => $errorMessage,
+            'allowedChoices' => $draw['allowed_choices'] ?? ['vowel', 'consonant'],
+            'drawChoiceHistory' => $draw['choice_history'] ?? [],
+            'drawCompleted' => $this->drawIsComplete($draw, $ageGroup),
+            'latestLetter' => $draw['latest_letter'] ?? null,
             'opponentLevel' => $normalizedOpponentLevel,
             'opponentLevelLabel' => $this->opponentAiService->labelForLevel($normalizedOpponentLevel),
         ];
@@ -303,6 +454,21 @@ class LetterGameController extends Controller
         $draw = $request->session()->get(self::SESSION_KEY.'.'.$drawId);
 
         return is_array($draw) ? $draw : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function freshInteractiveDraw(AgeGroup $ageGroup, ?string $opponentLevel): array
+    {
+        return [
+            ...$this->gameIntelligenceManager->startLettersDraw($ageGroup),
+            ...$this->gameplaySecurityService->createTimedWindow($ageGroup->letters_timer_seconds),
+            'draw_id' => Str::uuid()->toString(),
+            'age_group_id' => $ageGroup->id,
+            'game_type' => 'letters',
+            'opponent_level' => $opponentLevel,
+        ];
     }
 
     /**
@@ -322,6 +488,13 @@ class LetterGameController extends Controller
         }
 
         return true;
+    }
+
+    private function drawIsComplete(array $draw, AgeGroup $ageGroup): bool
+    {
+        $target = (int) ($draw['letters_target'] ?? count($draw['letters'] ?? []));
+
+        return count($draw['letters'] ?? []) >= $target;
     }
 
     private function duelOutcome(int $playerScore, ?int $opponentScore): ?string

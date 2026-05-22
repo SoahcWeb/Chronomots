@@ -9,6 +9,7 @@ use App\Models\LetterRound;
 use App\Models\User;
 use App\Models\Word;
 use App\Services\AchievementService;
+use App\Services\GameIntelligence\LetterPoolService;
 use Database\Seeders\AchievementSeeder;
 use Database\Seeders\AgeGroupSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,7 +19,7 @@ class LetterGameTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_letters_game_page_displays_a_draw_for_the_selected_age_group(): void
+    public function test_letters_game_page_starts_an_interactive_draw_for_the_selected_age_group(): void
     {
         $user = User::factory()->create();
         $ageGroup = AgeGroup::query()->create([
@@ -37,12 +38,15 @@ class LetterGameTest extends TestCase
         $response
             ->assertOk()
             ->assertSee('Mode Lettres')
-            ->assertSee('90');
+            ->assertSee('90')
+            ->assertSee('Choisir une voyelle')
+            ->assertSee('Choisir une consonne');
 
         $draws = session('chronomots.letters.draws', []);
 
         $this->assertCount(1, $draws);
-        $this->assertCount(7, array_values($draws)[0]['letters']);
+        $this->assertCount(0, array_values($draws)[0]['letters']);
+        $this->assertSame(7, array_values($draws)[0]['letters_target']);
     }
 
     public function test_letters_pages_load_for_age_group_ids_even_without_a_seed_dictionary_word(): void
@@ -69,8 +73,43 @@ class LetterGameTest extends TestCase
             $latestDraw = end($draws);
 
             $this->assertIsArray($latestDraw);
-            $this->assertCount($expectedLettersCount, $latestDraw['letters']);
+            $this->assertSame($expectedLettersCount, $latestDraw['letters_target']);
+            $this->assertCount(0, $latestDraw['letters']);
         }
+    }
+
+    public function test_letters_draw_choice_reveals_a_matching_letter_type(): void
+    {
+        $user = User::factory()->create();
+        $ageGroup = AgeGroup::query()->create([
+            'name' => '10-13 ans',
+            'min_age' => 10,
+            'max_age' => 13,
+            'description' => 'Mode entraînement',
+            'letters_timer_seconds' => 60,
+            'numbers_timer_seconds' => 90,
+        ]);
+
+        $this->actingAs($user)->get(route('play.letters.show', $ageGroup));
+        $drawId = array_key_first(session('chronomots.letters.draws', []));
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('play.letters.draw', $ageGroup), [
+                'draw_id' => $drawId,
+                'letter_type' => 'vowel',
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertSee('1/8');
+
+        $draw = session('chronomots.letters.draws.'.$drawId);
+
+        $this->assertIsArray($draw);
+        $this->assertCount(1, $draw['letters']);
+        $this->assertSame('vowel', $draw['choice_history'][0]);
+        $this->assertTrue(app(LetterPoolService::class)->isVowel($draw['letters'][0]));
     }
 
     public function test_letters_game_submission_creates_a_completed_session_and_round(): void
@@ -183,6 +222,54 @@ class LetterGameTest extends TestCase
         $response
             ->assertStatus(422)
             ->assertSee('Temps dépassé pour ce tirage lettres');
+
+        $this->assertDatabaseCount('game_sessions', 0);
+        $this->assertDatabaseCount('letter_rounds', 0);
+    }
+
+    public function test_letters_game_rejects_word_submission_before_draw_is_complete(): void
+    {
+        $user = User::factory()->create();
+        $ageGroup = AgeGroup::query()->create([
+            'name' => '10-13 ans',
+            'min_age' => 10,
+            'max_age' => 13,
+            'description' => 'Mode entraînement',
+            'letters_timer_seconds' => 60,
+            'numbers_timer_seconds' => 90,
+        ]);
+
+        $drawId = 'draw-incomplete-letters';
+
+        $response = $this
+            ->withSession([
+                'chronomots' => [
+                    'letters' => [
+                        'draws' => [
+                            $drawId => [
+                                'draw_id' => $drawId,
+                                'letters' => ['M', 'A', 'R'],
+                                'letters_target' => 8,
+                                'allowed_choices' => ['vowel', 'consonant'],
+                                'choice_history' => ['consonant', 'vowel', 'consonant'],
+                                'started_at' => now()->subSeconds(10)->toIso8601String(),
+                                'expires_at' => now()->addSeconds(50)->toIso8601String(),
+                                'game_type' => 'letters',
+                                'age_group_id' => $ageGroup->id,
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->actingAs($user)
+            ->post(route('play.letters.submit', $ageGroup), [
+                'draw_id' => $drawId,
+                'submitted_word' => 'mar',
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertSee('Le tirage n’est pas encore complet');
 
         $this->assertDatabaseCount('game_sessions', 0);
         $this->assertDatabaseCount('letter_rounds', 0);

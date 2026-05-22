@@ -24,6 +24,7 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:daily-challenge-submit')
         ->name('daily-challenges.submit');
     Route::get('/play/letters/{ageGroup}', [LetterGameController::class, 'show'])->name('play.letters.show');
+    Route::post('/play/letters/{ageGroup}/draw', [LetterGameController::class, 'draw'])->name('play.letters.draw');
     Route::post('/play/letters/{ageGroup}/submit', [LetterGameController::class, 'submit'])
         ->middleware('throttle:letters-submit')
         ->name('play.letters.submit');

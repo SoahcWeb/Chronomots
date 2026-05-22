@@ -115,6 +115,9 @@ class AudioService {
             case 'achievement':
                 this.playSequence([[784, 0.06, 'triangle'], [1046, 0.09, 'triangle'], [1318, 0.15, 'sine']], startAt, 1);
                 break;
+            case 'draw':
+                this.playSequence([[620, 0.05, 'triangle'], [760, 0.07, 'sine']], startAt, 0.55, 0.04);
+                break;
             default:
                 break;
         }
