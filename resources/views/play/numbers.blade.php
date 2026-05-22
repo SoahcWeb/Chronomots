@@ -52,6 +52,7 @@
                             'chronomots-timer--urgent': isUrgent,
                             'chronomots-timer--expired': expired
                         }"
+                        data-feedback-timer
                         class="chronomots-soft-card chronomots-timer rounded-[1.5rem] p-5 sm:w-48"
                     >
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Chrono chiffres</p>
@@ -70,7 +71,7 @@
                 <div class="mt-8 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
                     <div class="grid gap-3 grid-cols-2 {{ count($numbers) >= 6 ? 'sm:grid-cols-3' : 'sm:grid-cols-2' }}">
                         @foreach ($numbers as $number)
-                            <div class="chronomots-soft-card chronomots-token chronomots-token--numbers flex min-h-20 items-center justify-center rounded-[1.6rem] px-4 py-5 text-center shadow-sm">
+                            <div class="chronomots-soft-card chronomots-token chronomots-token--numbers flex min-h-20 items-center justify-center rounded-[1.6rem] px-4 py-5 text-center shadow-sm" data-feedback-token="revealed" data-feedback-delay="{{ $loop->index * 45 }}">
                                 <span class="text-3xl font-black tracking-[-0.05em] text-slate-950 sm:text-4xl">{{ $number }}</span>
                             </div>
                         @endforeach
@@ -88,6 +89,8 @@
                     :class="{ 'chronomots-form-disabled': expired }"
                     class="chronomots-form-shell mt-8 space-y-4 rounded-[1.75rem] p-5 sm:p-6"
                     data-feedback-reveal
+                    data-feedback-submit
+                    data-feedback-submit-sound="word-valid"
                 >
                     @csrf
                     <input type="hidden" name="draw_id" value="{{ $drawId }}">

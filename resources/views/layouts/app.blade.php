@@ -16,7 +16,7 @@
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800,900|space-grotesk:500,700&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -26,6 +26,7 @@
         data-audio-sound-enabled="{{ $audioPreferences->sound_enabled ? '1' : '0' }}"
         data-audio-music-enabled="{{ $audioPreferences->music_enabled ? '1' : '0' }}"
         data-audio-volume-level="{{ $audioPreferences->volume_level }}"
+        data-audio-muted="0"
     >
         <div class="min-h-screen">
             @include('layouts.navigation')

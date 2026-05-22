@@ -59,6 +59,7 @@
                             'chronomots-timer--urgent': isUrgent,
                             'chronomots-timer--expired': expired
                         }"
+                        data-feedback-timer
                         class="chronomots-soft-card chronomots-timer rounded-[1.5rem] p-5 sm:w-48"
                     >
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Chrono lettres</p>
@@ -81,7 +82,11 @@
                             $isLatestLetter = $letter !== null && $index === ($revealedLettersCount - 1) && $latestLetter !== null;
                         @endphp
 
-                        <div class="chronomots-soft-card chronomots-token chronomots-token--letters {{ $letter ? 'chronomots-token--revealed' : 'chronomots-token--placeholder' }} flex min-h-20 items-center justify-center rounded-[1.6rem] px-4 py-5 text-center shadow-sm" @if ($isLatestLetter) data-audio-autoplay="draw" @endif>
+                        <div
+                            class="chronomots-soft-card chronomots-token chronomots-token--letters {{ $letter ? 'chronomots-token--revealed' : 'chronomots-token--placeholder' }} {{ $isLatestLetter ? 'chronomots-token--fresh' : '' }} flex min-h-20 items-center justify-center rounded-[1.6rem] px-4 py-5 text-center shadow-sm"
+                            @if ($letter) data-feedback-token="{{ $isLatestLetter ? 'fresh' : 'revealed' }}" data-feedback-delay="{{ $index * 45 }}" @endif
+                            @if ($isLatestLetter) data-audio-autoplay="letter-reveal" @endif
+                        >
                             @if ($letter)
                                 <span class="text-3xl font-black tracking-[-0.05em] text-slate-950 sm:text-4xl">{{ $letter }}</span>
                             @else
@@ -114,6 +119,8 @@
                     action="{{ route('play.letters.draw', $ageGroup) }}"
                     :class="{ 'chronomots-form-disabled': expired || {{ $drawCompleted ? 'true' : 'false' }} }"
                     class="chronomots-form-shell mt-8 space-y-4 rounded-[1.75rem] p-5 sm:p-6"
+                    data-feedback-submit
+                    data-feedback-submit-sound="letter-reveal"
                 >
                     @csrf
                     <input type="hidden" name="draw_id" value="{{ $drawId }}">
@@ -125,7 +132,7 @@
                             name="letter_type"
                             value="vowel"
                             :disabled="expired || {{ in_array('vowel', $allowedChoices, true) ? 'false' : 'true' }} || {{ $drawCompleted ? 'true' : 'false' }}"
-                            onclick="document.dispatchEvent(new CustomEvent('chronomots:play-sound', { detail: { sound: 'draw' } }))"
+                            onclick="document.dispatchEvent(new CustomEvent('chronomots:play-sound', { detail: { sound: 'letter-reveal' } }))"
                             class="chronomots-button-primary inline-flex items-center justify-center rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]"
                         >
                             Choisir une voyelle
@@ -135,7 +142,7 @@
                             name="letter_type"
                             value="consonant"
                             :disabled="expired || {{ in_array('consonant', $allowedChoices, true) ? 'false' : 'true' }} || {{ $drawCompleted ? 'true' : 'false' }}"
-                            onclick="document.dispatchEvent(new CustomEvent('chronomots:play-sound', { detail: { sound: 'draw' } }))"
+                            onclick="document.dispatchEvent(new CustomEvent('chronomots:play-sound', { detail: { sound: 'letter-reveal' } }))"
                             class="chronomots-button-secondary inline-flex items-center justify-center rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em]"
                         >
                             Choisir une consonne
@@ -149,6 +156,8 @@
                     :class="{ 'chronomots-form-disabled': expired || ! {{ $drawCompleted ? 'true' : 'false' }} }"
                     class="chronomots-form-shell mt-4 space-y-4 rounded-[1.75rem] p-5 sm:p-6"
                     data-feedback-reveal
+                    data-feedback-submit
+                    data-feedback-submit-sound="word-valid"
                 >
                     @csrf
                     <input type="hidden" name="draw_id" value="{{ $drawId }}">

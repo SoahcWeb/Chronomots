@@ -31,6 +31,19 @@
             </div>
 
             <div class="hidden items-center gap-3 sm:flex">
+                <button
+                    type="button"
+                    class="chronomots-audio-toggle"
+                    data-audio-toggle
+                    data-audio-label-on="Audio actif"
+                    data-audio-label-off="Audio coupe"
+                    data-audio-label-disabled="Audio desactive"
+                >
+                    <span class="chronomots-audio-toggle__icon" aria-hidden="true">♪</span>
+                    <span data-audio-toggle-text>Audio actif</span>
+                    <span class="chronomots-audio-toggle__indicator" data-audio-toggle-indicator>On</span>
+                </button>
+
                 @guest
                     <a href="{{ route('login') }}" class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white/75 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-cyan-200 hover:bg-white hover:text-slate-950">
                         Login
@@ -91,6 +104,19 @@
                 @endauth
 
                 <div class="flex flex-col gap-2">
+                    <button
+                        type="button"
+                        class="chronomots-audio-toggle w-full justify-center"
+                        data-audio-toggle
+                        data-audio-label-on="Audio actif"
+                        data-audio-label-off="Audio coupe"
+                        data-audio-label-disabled="Audio desactive"
+                    >
+                        <span class="chronomots-audio-toggle__icon" aria-hidden="true">♪</span>
+                        <span data-audio-toggle-text>Audio actif</span>
+                        <span class="chronomots-audio-toggle__indicator" data-audio-toggle-indicator>On</span>
+                    </button>
+
                     @guest
                         <a href="{{ route('login') }}" class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white/80 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-cyan-200 hover:text-slate-950">
                             Login

@@ -6,14 +6,14 @@
 
     <x-slot name="header">
         <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-                <p class="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-700">Dashboard joueur</p>
-                <h1 class="mt-2 text-3xl font-black tracking-[-0.04em] text-slate-950 sm:text-4xl">
+            <div class="chronomots-heading-stack">
+                <p class="chronomots-heading-eyebrow">Dashboard joueur</p>
+                <h1 class="chronomots-display-title mt-1 text-3xl font-black tracking-[-0.06em] text-slate-950 sm:text-4xl">
                     Bonjour {{ auth()->user()->name }}, voici ton espace Chronomots
                 </h1>
             </div>
 
-            <p class="max-w-2xl text-sm leading-6 text-slate-600">
+            <p class="max-w-2xl text-sm leading-7 text-slate-600">
                 Retrouve tes scores, ta progression par âge et tes dernières parties dans un seul tableau de bord.
             </p>
         </div>
@@ -21,7 +21,7 @@
 
     <div class="px-4 py-8 sm:px-6 lg:px-8">
         <div class="mx-auto max-w-7xl space-y-6">
-            <section class="chronomots-panel relative overflow-hidden rounded-[2rem] p-6 sm:p-8">
+            <section class="chronomots-panel chronomots-hero-panel relative overflow-hidden rounded-[2rem] p-6 sm:p-8">
                 <div class="chronomots-orb chronomots-orb--one"></div>
                 <div class="chronomots-orb chronomots-orb--two"></div>
 
@@ -31,10 +31,10 @@
                         <div class="mt-5">
                             <x-player-avatar :avatar="$playerAvatar" :title="auth()->user()->name" :subtitle="'Avatar actif : '.$playerAvatar['name']" size="lg" />
                         </div>
-                        <h2 class="mt-6 text-3xl font-black tracking-[-0.04em] text-slate-950 sm:text-4xl">
+                        <h2 class="chronomots-display-title mt-6 text-3xl font-black tracking-[-0.06em] text-slate-950 sm:text-4xl">
                             {{ $hasGames ? 'Ta progression prend forme.' : 'Prêt pour ta première partie ?' }}
                         </h2>
-                        <p class="mt-4 max-w-2xl text-base leading-8 text-slate-600">
+                        <p class="chronomots-lead mt-4 max-w-2xl text-base leading-8 text-slate-600">
                             @if ($hasGames)
                                 Tu as déjà construit une vraie base de progression entre lettres et chiffres. Utilise ce dashboard pour suivre tes performances et relancer rapidement une partie.
                             @else
@@ -65,21 +65,21 @@
                     </div>
 
                     <div class="grid gap-3 sm:grid-cols-2">
-                        <div class="rounded-[1.6rem] bg-white/78 p-5 shadow-sm backdrop-blur-sm">
-                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Parties jouées</p>
-                            <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $totalGames }}</p>
+                        <div class="chronomots-stat-card rounded-[1.7rem] p-5 backdrop-blur-sm" data-feedback-reveal data-feedback-delay="40">
+                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500/90">Parties jouées</p>
+                            <p class="chronomots-stat-value mt-3">{{ $totalGames }}</p>
                         </div>
-                        <div class="rounded-[1.6rem] bg-white/78 p-5 shadow-sm backdrop-blur-sm">
-                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Score moyen</p>
-                            <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $averageScore }}</p>
+                        <div class="chronomots-stat-card chronomots-stat-card--lime rounded-[1.7rem] p-5 backdrop-blur-sm" data-feedback-reveal data-feedback-delay="100">
+                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500/90">Score moyen</p>
+                            <p class="chronomots-stat-value chronomots-stat-value--score mt-3">{{ $averageScore }}</p>
                         </div>
-                        <div class="rounded-[1.6rem] bg-white/78 p-5 shadow-sm backdrop-blur-sm">
-                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Meilleur Lettres</p>
-                            <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $bestLettersScore }}</p>
+                        <div class="chronomots-stat-card rounded-[1.7rem] p-5 backdrop-blur-sm" data-feedback-reveal data-feedback-delay="160">
+                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500/90">Meilleur Lettres</p>
+                            <p class="chronomots-stat-value chronomots-stat-value--score mt-3">{{ $bestLettersScore }}</p>
                         </div>
-                        <div class="rounded-[1.6rem] bg-white/78 p-5 shadow-sm backdrop-blur-sm">
-                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Meilleur Chiffres</p>
-                            <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $bestNumbersScore }}</p>
+                        <div class="chronomots-stat-card chronomots-stat-card--warm rounded-[1.7rem] p-5 backdrop-blur-sm" data-feedback-reveal data-feedback-delay="220">
+                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500/90">Meilleur Chiffres</p>
+                            <p class="chronomots-stat-value chronomots-stat-value--score mt-3">{{ $bestNumbersScore }}</p>
                         </div>
                     </div>
                 </div>
@@ -102,27 +102,27 @@
                         </div>
 
                         <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                            <div class="chronomots-soft-card rounded-[1.5rem] p-5">
+                            <div class="chronomots-card-shell rounded-[1.6rem] p-5">
                                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Mode favori</p>
                                 <p class="mt-3 text-xl font-black text-slate-950">{{ $favoriteMode }}</p>
                             </div>
-                            <div class="chronomots-soft-card rounded-[1.5rem] p-5">
+                            <div class="chronomots-card-shell rounded-[1.6rem] p-5">
                                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Parties lettres</p>
                                 <p class="mt-3 text-xl font-black text-slate-950">{{ $lettersGamesCount }}</p>
                             </div>
-                            <div class="chronomots-soft-card rounded-[1.5rem] p-5">
+                            <div class="chronomots-card-shell rounded-[1.6rem] p-5">
                                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Parties chiffres</p>
                                 <p class="mt-3 text-xl font-black text-slate-950">{{ $numbersGamesCount }}</p>
                             </div>
-                            <div class="chronomots-soft-card rounded-[1.5rem] p-5">
+                            <div class="chronomots-card-shell rounded-[1.6rem] p-5">
                                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Catégories actives</p>
                                 <p class="mt-3 text-xl font-black text-slate-950">{{ $activeCategories }}</p>
                             </div>
-                            <div class="chronomots-soft-card rounded-[1.5rem] p-5">
+                            <div class="chronomots-card-shell rounded-[1.6rem] p-5">
                                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Succès débloqués</p>
                                 <p class="mt-3 text-xl font-black text-slate-950">{{ $unlockedAchievementsCount }}</p>
                             </div>
-                            <div class="chronomots-soft-card rounded-[1.5rem] p-5">
+                            <div class="chronomots-card-shell rounded-[1.6rem] p-5">
                                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Score cumulé</p>
                                 <p class="mt-3 text-xl font-black text-slate-950">{{ $totalScore }}</p>
                             </div>
@@ -156,7 +156,7 @@
                                         $isUnlocked = in_array($achievement->id, $unlockedAchievementIds, true);
                                     @endphp
 
-                                    <article class="chronomots-soft-card rounded-[1.5rem] p-5 {{ $isUnlocked ? 'ring-1 ring-emerald-200/80' : 'opacity-80' }}">
+                                    <article class="chronomots-card-shell rounded-[1.6rem] p-5 {{ $isUnlocked ? 'ring-1 ring-emerald-200/80' : 'opacity-80' }}" data-feedback-reveal data-feedback-delay="{{ 60 + ($loop->index * 50) }}">
                                         <div class="flex items-start justify-between gap-4">
                                             <div class="flex items-start gap-4">
                                                 <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.2rem] bg-white/90 text-base font-black tracking-[-0.04em] text-slate-950 shadow-sm">
@@ -206,7 +206,7 @@
                         @else
                             <div class="mt-6 space-y-3">
                                 @foreach ($recentSessions as $session)
-                                    <article class="chronomots-soft-card rounded-[1.5rem] p-4 sm:p-5">
+                                    <article class="chronomots-card-shell rounded-[1.6rem] p-4 sm:p-5" data-feedback-reveal data-feedback-delay="{{ 60 + ($loop->index * 45) }}">
                                         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                             <div class="flex items-center gap-4">
                                                 <x-player-avatar :avatar="$playerAvatar" :title="auth()->user()->name" :subtitle="null" size="sm" />
@@ -222,7 +222,7 @@
                                                 </div>
                                             </div>
 
-                                            <div class="rounded-[1.3rem] bg-white/90 px-4 py-3 text-center shadow-sm">
+                                            <div class="chronomots-stat-card chronomots-stat-card--plum rounded-[1.3rem] px-4 py-3 text-center shadow-sm">
                                                 <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Score</p>
                                                 <p class="mt-1 text-2xl font-black tracking-[-0.05em] text-slate-950">{{ $session->score }}</p>
                                             </div>
@@ -245,7 +245,7 @@
                                     $ageGroup = $item['age_group'];
                                 @endphp
 
-                                <article class="chronomots-soft-card rounded-[1.6rem] p-5">
+                                <article class="chronomots-card-shell rounded-[1.6rem] p-5">
                                     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                         <div>
                                             <p class="text-lg font-black text-slate-950">{{ $ageGroup->name }}</p>
@@ -257,9 +257,9 @@
                                         </div>
                                     </div>
 
-                                    <div class="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
+                                    <div class="chronomots-progress-shell mt-4">
                                         <div
-                                            class="h-full rounded-full bg-gradient-to-r from-cyan-400 via-emerald-400 to-lime-400"
+                                            class="chronomots-progress-bar"
                                             style="width: {{ $item['completion_percent'] }}%;"
                                         ></div>
                                     </div>

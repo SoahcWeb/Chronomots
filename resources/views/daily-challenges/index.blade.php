@@ -25,7 +25,7 @@
                         $isLetters = $challenge->game_type === 'letters';
                     @endphp
 
-                    <article class="chronomots-panel rounded-[2rem] p-6 sm:p-8">
+                    <article class="chronomots-panel rounded-[2rem] p-6 sm:p-8" data-feedback-reveal data-feedback-delay="{{ 40 + ($loop->index * 80) }}">
                         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                                 <span class="chronomots-badge {{ $isLetters ? 'chronomots-badge--info' : 'chronomots-badge--success' }}">
@@ -135,7 +135,7 @@
                                 $attempt = $entry['user_attempt'];
                             @endphp
 
-                            <article class="chronomots-soft-card rounded-[1.5rem] p-5">
+                            <article class="chronomots-soft-card rounded-[1.5rem] p-5" data-feedback-reveal data-feedback-delay="{{ 80 + ($loop->index * 60) }}">
                                 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
                                         <p class="text-lg font-black text-slate-950">

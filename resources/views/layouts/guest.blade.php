@@ -11,12 +11,18 @@
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700,800,900|space-grotesk:500,700&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="chronomots-grid font-sans text-slate-900 antialiased">
+    <body
+        class="chronomots-grid font-sans text-slate-900 antialiased"
+        data-audio-sound-enabled="1"
+        data-audio-music-enabled="0"
+        data-audio-volume-level="70"
+        data-audio-muted="0"
+    >
         <div class="relative min-h-screen px-4 py-8 sm:px-6 lg:px-8">
             <div class="chronomots-orb chronomots-orb--one"></div>
             <div class="chronomots-orb chronomots-orb--two"></div>

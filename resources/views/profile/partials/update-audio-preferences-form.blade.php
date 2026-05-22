@@ -5,7 +5,7 @@
         </h2>
 
         <p class="mt-1 text-sm leading-6 text-slate-600">
-            Active les sons de validation, d’erreur et de progression, puis ajuste leur intensité selon ton confort.
+            Active les sons de revelation, validation, erreur, chrono faible, victoire, defaite et succes, puis ajuste leur intensite selon ton confort.
         </p>
     </header>
 
@@ -29,7 +29,7 @@
                 >
                 <span>
                     <span class="block text-sm font-semibold text-slate-950">Effets sonores</span>
-                    <span class="mt-1 block text-sm leading-6 text-slate-600">Validation, erreur, chrono faible, victoire et succès débloqués.</span>
+                    <span class="mt-1 block text-sm leading-6 text-slate-600">Revelation lettre, validation correcte, erreur, chrono faible, victoire, defaite et succes debloques.</span>
                 </span>
             </label>
 
@@ -73,6 +73,61 @@
                 data-audio-volume-input
             >
             <x-input-error class="mt-2" :messages="$errors->get('volume_level')" />
+        </div>
+
+        <div class="chronomots-form-shell rounded-[1.4rem] p-5">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        Mute global
+                    </p>
+                    <p class="mt-1 text-sm leading-6 text-slate-600">
+                        Coupe ou reactive instantanement les sons sur cet appareil, sans bloquer le jeu si l’audio est refuse.
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    class="chronomots-audio-toggle"
+                    data-audio-toggle
+                    data-audio-label-on="Audio actif"
+                    data-audio-label-off="Audio coupe"
+                    data-audio-label-disabled="Audio desactive"
+                >
+                    <span class="chronomots-audio-toggle__icon" aria-hidden="true">♪</span>
+                    <span data-audio-toggle-text>Audio actif</span>
+                    <span class="chronomots-audio-toggle__indicator" data-audio-toggle-indicator>On</span>
+                </button>
+            </div>
+
+            <p class="mt-4 text-sm font-semibold text-slate-700" data-audio-status-label>
+                Audio actif
+            </p>
+        </div>
+
+        <div class="chronomots-form-shell rounded-[1.4rem] p-5">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        Previsualiser les sons
+                    </p>
+                    <p class="mt-1 text-sm leading-6 text-slate-600">
+                        Teste les sons legerement avant d’enregistrer tes preferences.
+                    </p>
+                </div>
+
+                <span class="chronomots-pill">TV moderne legere</span>
+            </div>
+
+            <div class="chronomots-audio-preview-grid mt-4">
+                <button type="button" class="chronomots-audio-preview-button" data-audio-preview="letter-reveal">Revelation</button>
+                <button type="button" class="chronomots-audio-preview-button" data-audio-preview="word-valid">Validation</button>
+                <button type="button" class="chronomots-audio-preview-button" data-audio-preview="error">Erreur</button>
+                <button type="button" class="chronomots-audio-preview-button" data-audio-preview="low-time">Chrono faible</button>
+                <button type="button" class="chronomots-audio-preview-button" data-audio-preview="victory">Victoire</button>
+                <button type="button" class="chronomots-audio-preview-button" data-audio-preview="defeat">Defaite</button>
+                <button type="button" class="chronomots-audio-preview-button" data-audio-preview="achievement">Succes</button>
+            </div>
         </div>
 
         <div class="flex items-center gap-4">

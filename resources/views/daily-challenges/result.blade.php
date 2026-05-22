@@ -3,7 +3,8 @@
         $unlockedAchievements = $unlockedAchievements ?? collect();
         $payload = $challenge->payload;
         $isLetters = $challenge->game_type === 'letters';
-        $pageSound = $attempt->is_perfect || $isCurrentUserBest ? 'victory' : 'valid';
+        $pageSound = $attempt->is_perfect || $isCurrentUserBest ? 'victory' : 'word-valid';
+        $resultOutcome = $attempt->is_perfect || $isCurrentUserBest ? 'victory' : 'success';
     @endphp
 
     <x-slot name="header">
@@ -25,7 +26,7 @@
 
     <div class="px-4 py-8 sm:px-6 lg:px-8">
         <div class="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-            <section class="chronomots-panel chronomots-result-shell rounded-[2rem] p-6 sm:p-8" data-audio-autoplay="{{ $pageSound }}">
+            <section class="chronomots-panel chronomots-result-shell chronomots-feedback-outcome rounded-[2rem] p-6 sm:p-8" data-audio-autoplay="{{ $pageSound }}" data-feedback-outcome="{{ $resultOutcome }}">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="chronomots-badge {{ $attempt->is_perfect ? 'chronomots-badge--success' : 'chronomots-badge--info' }}">
@@ -48,18 +49,8 @@
 
                 @if ($isLetters)
                     <div class="mt-6 grid gap-4 sm:grid-cols-2">
-                        <div class="chronomots-score-burst chronomots-score-burst--spotlight rounded-[1.75rem] bg-gradient-to-br from-cyan-100 via-white to-sky-50 p-5 shadow-sm" data-feedback-reveal>
-                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">Mot soumis</p>
-                            <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $attempt->submitted_word }}</p>
-                            <p class="mt-2 text-sm leading-6 text-slate-600">Score = longueur x 10 sur ce défi.</p>
-                        </div>
-                        <div class="chronomots-score-burst chronomots-score-burst--spotlight rounded-[1.75rem] bg-gradient-to-br from-emerald-100 via-white to-lime-50 p-5 shadow-sm" data-feedback-reveal>
-                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Badge parfait</p>
-                            <p class="mt-3 text-2xl font-black tracking-[-0.05em] text-slate-950">
-                                {{ $attempt->is_perfect ? 'Débloqué' : 'Pas encore' }}
-                            </p>
-                            <p class="mt-2 text-sm leading-6 text-slate-600">Le badge parfait du jour récompense un score égal au meilleur niveau du tirage.</p>
-                        </div>
+                        <x-feedback-stat title="Mot soumis" :value="$attempt->submitted_word" description="Score = longueur x 10 sur ce defi." tone="sky" />
+                        <x-feedback-stat title="Badge parfait" :value="$attempt->is_perfect ? 'Debloque' : 'Pas encore'" description="Le badge parfait du jour recompense un score egal au meilleur niveau du tirage." tone="success" />
                     </div>
 
                     <div class="mt-8 rounded-[1.75rem] border border-white/70 bg-white/55 p-5">
@@ -73,7 +64,7 @@
 
                         <div class="mt-5 grid grid-cols-4 gap-3">
                             @foreach ($payload['letters'] as $letter)
-                                <div class="chronomots-soft-card chronomots-token chronomots-token--letters flex min-h-18 items-center justify-center rounded-[1.4rem] px-3 py-4">
+                                <div class="chronomots-soft-card chronomots-token chronomots-token--letters flex min-h-18 items-center justify-center rounded-[1.4rem] px-3 py-4" data-feedback-token="revealed" data-feedback-delay="{{ 60 + ($loop->index * 35) }}">
                                     <span class="text-2xl font-black tracking-[-0.05em] text-slate-950">{{ $letter }}</span>
                                 </div>
                             @endforeach
@@ -81,21 +72,9 @@
                     </div>
                 @else
                     <div class="mt-6 grid gap-4 sm:grid-cols-3">
-                        <div class="chronomots-score-burst chronomots-score-burst--spotlight rounded-[1.75rem] bg-gradient-to-br from-emerald-100 via-white to-lime-50 p-5 shadow-sm" data-feedback-reveal>
-                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Cible</p>
-                            <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $payload['target_number'] }}</p>
-                        </div>
-                        <div class="chronomots-score-burst chronomots-score-burst--spotlight rounded-[1.75rem] bg-gradient-to-br from-cyan-100 via-white to-sky-50 p-5 shadow-sm" data-feedback-reveal>
-                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">Calcul soumis</p>
-                            <p class="mt-3 text-xl font-black tracking-[-0.05em] text-slate-950">{{ $attempt->submitted_solution }}</p>
-                        </div>
-                        <div class="chronomots-score-burst chronomots-score-burst--spotlight rounded-[1.75rem] bg-gradient-to-br from-orange-100 via-white to-amber-50 p-5 shadow-sm" data-feedback-reveal>
-                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-orange-700">Écart</p>
-                            <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $attempt->result_payload['difference'] ?? 0 }}</p>
-                            <p class="mt-2 text-sm leading-6 text-slate-600">
-                                {{ $attempt->is_perfect ? 'Badge parfait du jour débloqué.' : 'Le score parfait demande une cible exacte.' }}
-                            </p>
-                        </div>
+                        <x-feedback-stat title="Cible" :value="$payload['target_number']" tone="success" />
+                        <x-feedback-stat title="Calcul soumis" :value="$attempt->submitted_solution" tone="sky" />
+                        <x-feedback-stat title="Écart" :value="$attempt->result_payload['difference'] ?? 0" :description="$attempt->is_perfect ? 'Badge parfait du jour debloque.' : 'Le score parfait demande une cible exacte.'" tone="warning" />
                     </div>
 
                     <div class="mt-8 rounded-[1.75rem] border border-white/70 bg-white/55 p-5">
@@ -109,7 +88,7 @@
 
                         <div class="mt-5 grid grid-cols-3 gap-3">
                             @foreach ($payload['numbers'] as $number)
-                                <div class="chronomots-soft-card chronomots-token chronomots-token--numbers flex min-h-18 items-center justify-center rounded-[1.4rem] px-3 py-4">
+                                <div class="chronomots-soft-card chronomots-token chronomots-token--numbers flex min-h-18 items-center justify-center rounded-[1.4rem] px-3 py-4" data-feedback-token="revealed" data-feedback-delay="{{ 60 + ($loop->index * 35) }}">
                                     <span class="text-2xl font-black tracking-[-0.05em] text-slate-950">{{ $number }}</span>
                                 </div>
                             @endforeach

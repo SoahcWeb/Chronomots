@@ -65,7 +65,7 @@
                             : $ageGroup->min_age.'+';
                     @endphp
 
-                    <article class="chronomots-panel chronomots-interactive chronomots-mode-card flex h-full flex-col rounded-[2rem] p-6 sm:p-8">
+                    <article class="chronomots-panel chronomots-interactive chronomots-mode-card flex h-full flex-col rounded-[2rem] p-6 sm:p-8" data-feedback-reveal data-feedback-delay="{{ 40 + ($loop->index * 70) }}">
                         <div class="chronomots-mode-hero rounded-[1.5rem] bg-gradient-to-br {{ $theme['accent'] }} p-5 shadow-sm">
                             <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                 <div>
@@ -179,7 +179,7 @@
 
                     <div class="mt-6 grid gap-4 lg:grid-cols-2">
                         @foreach ($dailyChallenges as $dailyChallenge)
-                            <article class="chronomots-soft-card rounded-[1.5rem] p-5">
+                            <article class="chronomots-soft-card rounded-[1.5rem] p-5" data-feedback-reveal data-feedback-delay="{{ 80 + ($loop->index * 70) }}">
                                 <div class="flex items-center justify-between gap-3">
                                     <div>
                                         <p class="text-lg font-black text-slate-950">

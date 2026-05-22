@@ -46,6 +46,7 @@
                             'chronomots-timer--urgent': isUrgent,
                             'chronomots-timer--expired': expired
                         }"
+                        data-feedback-timer
                         class="chronomots-soft-card chronomots-timer rounded-[1.5rem] p-5 sm:w-48"
                     >
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Chrono du jour</p>
@@ -58,7 +59,7 @@
                 <div class="mt-8 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
                     <div class="grid grid-cols-3 gap-3">
                         @foreach ($payload['numbers'] as $number)
-                            <div class="chronomots-soft-card chronomots-token chronomots-token--numbers flex min-h-20 items-center justify-center rounded-[1.6rem] px-4 py-5 text-center shadow-sm">
+                            <div class="chronomots-soft-card chronomots-token chronomots-token--numbers flex min-h-20 items-center justify-center rounded-[1.6rem] px-4 py-5 text-center shadow-sm" data-feedback-token="revealed" data-feedback-delay="{{ $loop->index * 45 }}">
                                 <span class="text-3xl font-black tracking-[-0.05em] text-slate-950 sm:text-4xl">{{ $number }}</span>
                             </div>
                         @endforeach
@@ -70,7 +71,7 @@
                     </div>
                 </div>
 
-                <form method="POST" action="{{ route('daily-challenges.submit', $challenge) }}" :class="{ 'chronomots-form-disabled': expired }" class="chronomots-form-shell mt-8 space-y-4 rounded-[1.75rem] p-5 sm:p-6" data-feedback-reveal>
+                <form method="POST" action="{{ route('daily-challenges.submit', $challenge) }}" :class="{ 'chronomots-form-disabled': expired }" class="chronomots-form-shell mt-8 space-y-4 rounded-[1.75rem] p-5 sm:p-6" data-feedback-reveal data-feedback-submit data-feedback-submit-sound="word-valid">
                     @csrf
 
                     <div>

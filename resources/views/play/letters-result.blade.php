@@ -31,12 +31,17 @@
             $pageSound = match (true) {
                 $duelOutcome === 'Victoire' => 'victory',
                 $duelOutcome === 'Défaite' => 'defeat',
-                default => 'valid',
+                default => 'word-valid',
+            };
+            $resultOutcome = match (true) {
+                $duelOutcome === 'Victoire' => 'victory',
+                $duelOutcome === 'Défaite' => 'defeat',
+                default => 'success',
             };
         @endphp
 
         <div class="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-            <section class="chronomots-panel chronomots-result-shell rounded-[2rem] p-6 sm:p-8" data-audio-autoplay="{{ $pageSound }}">
+            <section class="chronomots-panel chronomots-result-shell chronomots-feedback-outcome rounded-[2rem] p-6 sm:p-8" data-audio-autoplay="{{ $pageSound }}" data-feedback-outcome="{{ $resultOutcome }}">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <span class="chronomots-badge {{ $performanceBadge }}">{{ $performanceLabel }}</span>
                     <div class="flex flex-wrap items-center gap-2">
@@ -55,22 +60,10 @@
                 </div>
 
                 <div class="mt-6 grid gap-4 {{ $opponentResult ? 'sm:grid-cols-3' : 'sm:grid-cols-2' }}">
-                    <div class="chronomots-score-burst chronomots-score-burst--spotlight rounded-[1.75rem] bg-gradient-to-br from-cyan-100 via-white to-sky-50 p-5 shadow-sm" data-feedback-reveal>
-                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">Mot soumis</p>
-                        <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $submittedWord }}</p>
-                        <p class="mt-2 text-sm leading-6 text-slate-600">Validation par tirage et dictionnaire de test.</p>
-                    </div>
-                    <div class="chronomots-score-burst chronomots-score-burst--spotlight rounded-[1.75rem] bg-gradient-to-br from-emerald-100 via-white to-lime-50 p-5 shadow-sm" data-feedback-reveal>
-                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Score</p>
-                        <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $score }} pts</p>
-                        <p class="mt-2 text-sm leading-6 text-slate-600">Longueur du mot multipliée par 10 pour cette V1 solo.</p>
-                    </div>
+                    <x-feedback-stat title="Mot soumis" :value="$submittedWord" description="Validation par tirage et dictionnaire de test." tone="sky" />
+                    <x-feedback-stat title="Score" :value="$score.' pts'" description="Longueur du mot multipliee par 10 pour cette V1 solo." tone="success" score />
                     @if ($opponentResult)
-                        <div class="chronomots-score-burst chronomots-score-burst--spotlight rounded-[1.75rem] bg-gradient-to-br from-orange-100 via-white to-amber-50 p-5 shadow-sm" data-feedback-reveal>
-                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-orange-700">IA {{ $opponentLevelLabel }}</p>
-                            <p class="mt-3 text-3xl font-black tracking-[-0.05em] text-slate-950">{{ $opponentResult['score'] }} pts</p>
-                            <p class="mt-2 text-sm leading-6 text-slate-600">{{ $opponentResult['submitted_word'] ?: 'Aucun mot' }} • {{ $opponentResult['quality_label'] }}</p>
-                        </div>
+                        <x-feedback-stat class="chronomots-ai-card" :title="'IA '.$opponentLevelLabel" :value="$opponentResult['score'].' pts'" :description="($opponentResult['submitted_word'] ?: 'Aucun mot').' • '.$opponentResult['quality_label']" tone="warning" />
                     @endif
                 </div>
 
@@ -83,12 +76,12 @@
                         <span class="chronomots-pill">{{ count($letters) }} lettres</span>
                     </div>
 
-                    <div class="mt-5 grid gap-3 grid-cols-3 sm:grid-cols-4 lg:grid-cols-5">
-                        @foreach ($letters as $letter)
-                            <div class="chronomots-soft-card chronomots-token chronomots-token--letters flex min-h-18 items-center justify-center rounded-[1.4rem] px-3 py-4">
-                                <span class="text-2xl font-black tracking-[-0.05em] text-slate-950">{{ $letter }}</span>
-                            </div>
-                        @endforeach
+                        <div class="mt-5 grid gap-3 grid-cols-3 sm:grid-cols-4 lg:grid-cols-5">
+                            @foreach ($letters as $letter)
+                                <div class="chronomots-soft-card chronomots-token chronomots-token--letters flex min-h-18 items-center justify-center rounded-[1.4rem] px-3 py-4" data-feedback-token="revealed" data-feedback-delay="{{ 60 + ($loop->index * 35) }}">
+                                    <span class="text-2xl font-black tracking-[-0.05em] text-slate-950">{{ $letter }}</span>
+                                </div>
+                            @endforeach
                     </div>
                 </div>
             </section>
@@ -117,7 +110,7 @@
                         <p class="mt-2 text-lg font-bold text-slate-950">{{ $letterRound->submitted_word }}</p>
                     </div>
                     @if ($opponentResult)
-                        <div class="chronomots-soft-card rounded-[1.5rem] p-4">
+                        <div class="chronomots-soft-card chronomots-ai-card rounded-[1.5rem] p-4">
                             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Réponse IA</p>
                             <div class="mt-2">
                                 <x-player-avatar :avatar="$opponentAvatar" :title="$opponentAvatar['name']" :subtitle="$opponentResult['submitted_word'] ?: 'Aucun mot'" size="sm" />
